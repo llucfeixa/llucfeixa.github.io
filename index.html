@@ -1627,7 +1627,7 @@
           newSeasons: [...baseSeasons, `T${newSeason}E${newEp}`],
           newNextEp,
           newStatus: 'active',
-          toastMsg: newNextEp ? `📺 Siguiente: ${newNextEp.split(' ')[0]}` : `✅ Temporada T${newSeason} completa`
+          toastMsg: `✅ Marcado: T${newSeason}E${newEp}`
         };
       } else {
         const newSeasons = [...baseSeasons, `T${newSeason}`];
@@ -1765,8 +1765,8 @@
         return `<div class="list-card">
       <div class="list-thumb" onclick="openModal('${id}')">${poster ? `<img src="${poster}" alt="" loading="lazy">` : '📺'}</div>
       <div class="list-info" onclick="openModal('${id}')">
-        <div class="list-title">${show.title}${show.nextEp ? ` <span style="color:var(--gold);font-weight:400;font-size:0.9rem">(${show.nextEp.split(' ')[0]})</span>` : ''}${show._autoMoved ? ` <span style="font-size:0.65rem;color:var(--green);border:1px solid rgba(76,175,125,0.4);padding:1px 5px;border-radius:4px;background:rgba(76,175,125,0.1)">nuevo</span>` : ''}</div>
-        <div class="list-sub">${show.nextEp || `Visto: ${last || '—'}`}</div>
+        <div class="list-title">${show.title}${show._autoMoved ? ` <span style="font-size:0.65rem;color:var(--green);border:1px solid rgba(76,175,125,0.4);padding:1px 5px;border-radius:4px;background:rgba(76,175,125,0.1)">nuevo</span>` : ''}</div>
+        <div class="list-sub">${show.nextEp ? `Pendiente: <strong>${show.nextEp}</strong>` : `Visto: ${last || '—'}`}</div>
       </div>
       <div class="list-right">
         ${rating ? `<span style="color:var(--gold);font-size:0.78rem;font-weight:600">★${rating}</span>` : ''}
@@ -1790,7 +1790,7 @@
       ${hasNext ? `<button class="card-next-btn" onclick="event.stopPropagation();quickAdvance('${id}')">▶ Marcar ${show.nextEp.split(' ')[0]}</button>` : ''}
     </div>
     <div class="card-body" onclick="openModal('${id}')">
-      <div class="card-title">${show.title} ${show.nextEp ? `<span style="color:var(--gold);font-size:0.8rem;font-weight:400">(${show.nextEp.split(' ')[0]})</span>` : ''}</div>
+      <div class="card-title">${show.title}</div>
       <div class="card-meta"><span class="card-ep">${show.nextEp || last || 'Sin empezar'}</span><div class="card-status-dot" style="background:${cfg.dot}"></div></div>
       ${show.seasons && show.seasons.length ? `<div class="card-progress-bar"><div class="card-progress-bar-fill" style="width:${Math.min(95, (show.seasons.length / (show.seasons.length + 1)) * 100)}%;background:var(--gold)"></div></div>` : ''}
     </div>
@@ -1852,7 +1852,7 @@
       const show = findShow(id); if (!show) return;
       openModalId = id;
       const cfg = sc(show.status);
-      document.getElementById('modalTitle').textContent = show.title + (show.nextEp ? ` (${show.nextEp.split(' ')[0]})` : '');
+      document.getElementById('modalTitle').textContent = show.title;
       document.getElementById('modalBadge').innerHTML = `<span class="badge ${cfg.badge}" style="margin-bottom:0.4rem">${cfg.label}</span>`;
       document.getElementById('modalRating').textContent = show.rating ? `★ ${Number(show.rating).toFixed(1)}/10` : '';
       document.getElementById('modalYear').textContent = '';
