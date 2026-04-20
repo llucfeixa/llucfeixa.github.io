@@ -1642,7 +1642,7 @@
             ep1Date = ne.air_date ? fmtDate(ne.air_date) : null;
           }
           if (!ep1Aired) {
-            const newNextEp = ep1Date ? `T${nextSeaNum} (${ep1Date})` : `T${nextSeaNum} (?)`;
+            const newNextEp = ep1Date ? `T${nextSeaNum} (${ep1Date})` : `T${nextSeaNum}`;
             return { newSeasons, newNextEp, newStatus: 'waiting', toastMsg: `⏳ T${newSeason} completada → esperando T${nextSeaNum}` };
           } else {
             let newNextEp = `T${nextSeaNum}E1`;
@@ -1844,7 +1844,7 @@
     function renderModalSeasons(show) {
       const seasons = show.seasons || [];
       document.getElementById('modalSeasons').innerHTML = seasons.length
-        ? seasons.map((s, i) => { const cur = i === seasons.length - 1 && show.status !== 'done' && show.status !== 'pending'; const done = show.status === 'done' || i < seasons.length - 1; return `<span class="season-pill ${cur ? 'current' : done ? 'done' : ''}">${s}</span>` }).join('')
+        ? seasons.map((s, i) => { const cur = i === seasons.length - 1 && show.status !== 'done' && show.status !== 'pending' && show.status !== 'waiting'; const done = show.status === 'done' || show.status === 'waiting' || i < seasons.length - 1; return `<span class="season-pill ${cur ? 'current' : done ? 'done' : ''}">${s}</span>` }).join('')
         : '<span style="color:var(--muted);font-size:0.8rem">Sin temporadas</span>';
     }
 
@@ -1958,7 +1958,10 @@
       const ns = [];
       for (let s = 1; s < sNum; s++)ns.push(`T${s}`);
       if (eVal === 'all' || !eVal) ns.push(`T${sNum}`);
-      else ns.push(`T${sNum}E${eVal}`);
+      else {
+        const en = parseInt(eVal);
+        if (en > 1) ns.push(`T${sNum}E${en - 1}`);
+      }
       editSeasons = ns; renderSeasonTags();
       document.getElementById('pickerSeason').value = ''; resetEpSelect();
       const label = eVal && eVal !== 'all' ? `T${sNum}E${eVal}` : `T${sNum} (completa)`;
@@ -2016,8 +2019,15 @@
         else { const p = editSeasons.length ? parseEp(editSeasons[editSeasons.length - 1]) : null; nextEp = `T${p ? (p.s + 1) : 1} (?)`; }
       }
       if (status === 'active') {
-        if (editingId) { const ex = findShow(editingId); if (ex && ex.nextEp) nextEp = ex.nextEp; }
-        if (!nextEp && editSeasons.length) { const p = parseEp(editSeasons[editSeasons.length - 1]); if (p) nextEp = `T${p.s}E${(p.e || 0) + 1}`; }
+        if (editingId) {
+          const ex = findShow(editingId);
+          // Only preserve nextEp if seasons haven't changed
+          if (ex && ex.nextEp && JSON.stringify(ex.seasons) === JSON.stringify(editSeasons)) nextEp = ex.nextEp;
+        }
+        if (!nextEp && editSeasons.length) {
+          const p = parseEp(editSeasons[editSeasons.length - 1]);
+          if (p) nextEp = `T${p.s}E${(p.e || 0) + 1}`;
+        }
       }
 
       if (editingId) {
