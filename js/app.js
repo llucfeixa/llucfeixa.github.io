@@ -147,6 +147,13 @@ async function renderDiscover(append = false) {
       genreCache.map(g => `<button class="genre-tag" data-id="${g.id}" onclick="filterByGenre(${g.id})">${g.name}</button>`).join('');
   }
 
+  function deselectGenres() {
+    document.querySelectorAll('.genre-tag').forEach(b => {
+      if (b.id === 'genreAll') b.classList.add('active');
+      else b.classList.remove('active');
+    });
+  }
+
   // 2. Determine state: Search > Genre > Default
   if (q) {
     defContent.style.display = 'none';
@@ -155,16 +162,29 @@ async function renderDiscover(append = false) {
     
     if (!append) {
       searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Buscando...</div>';
-      searchPage = 1; searchHasMore = true;
+      searchPage = 1;
     }
 
     const results = await tmdbMulti(q, searchPage);
     if (!append) searchGrid.innerHTML = '';
+    
     if (!results.length && !append) {
       searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No se encontraron series.</div>';
       searchHasMore = false;
     } else {
-      searchGrid.innerHTML += results.map(s => renderDiscoverCard(s)).join('');
+      // Avoid adding same results if append was called accidentally
+      const currentIds = new Set([...searchGrid.querySelectorAll('.card-poster')].map(el => {
+        const attr = el.getAttribute('onclick');
+        const match = attr.match(/'(\d+)'/);
+        return match ? match[1] : null;
+      }));
+      
+      const newHtml = results
+        .filter(s => !currentIds.has(String(s.id)))
+        .map(s => renderDiscoverCard(s))
+        .join('');
+      
+      searchGrid.innerHTML += newHtml;
       searchHasMore = results.length >= 20;
     }
     
@@ -263,10 +283,17 @@ function renderDiscoverCard(s) {
 
 async function handleDiscoverSearch() {
   const q = document.getElementById('discoverSearchInput').value.trim();
-  if (q) currentGenreId = null; // Clear genre if searching
+  if (q) {
+    currentGenreId = null;
+    document.querySelectorAll('.genre-tag').forEach(b => {
+      if (b.id === 'genreAll') b.classList.add('active');
+      else b.classList.remove('active');
+    });
+  }
   
   clearTimeout(discoverTimer);
   discoverTimer = setTimeout(() => {
+    searchPage = 1; // Reset page when typing new search
     renderDiscover();
   }, 450);
 }
