@@ -104,6 +104,49 @@ h3 {
   border-bottom: 1px solid var(--border)
 }
 
+.nav-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  padding: 0.5rem 2rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.nav-tab {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.7rem 0.5rem;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.nav-tab:hover {
+  color: var(--text);
+}
+
+.nav-tab.active {
+  color: var(--gold);
+}
+
+.nav-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gold);
+  box-shadow: 0 0 10px rgba(201, 168, 76, 0.4);
+}
+
 .search-wrap {
   position: relative;
   flex: 1;

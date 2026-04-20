@@ -46,22 +46,43 @@
     <h1>🎬 Mi Cineteca</h1>
     <p>Seguimiento personal · Actualizado automáticamente</p>
   </div>
-  <div class="stats-bar" id="statsBar"></div>
-  <div class="controls">
-    <div class="search-wrap"><span class="search-icon">🔍</span><input type="text" id="searchInput"
-        placeholder="Buscar serie..."></div>
-    <button class="filter-btn active" data-filter="all">Todas</button>
-    <button class="filter-btn" data-filter="active">En curso</button>
-    <button class="filter-btn" data-filter="waiting">Esperando</button>
-    <button class="filter-btn" data-filter="pending">Por ver</button>
-    <button class="filter-btn" data-filter="done">Finalizadas</button>
-    <button class="add-btn" id="addBtn">＋ Añadir</button>
-    <div class="view-toggle">
-      <button class="view-btn active" id="gridViewBtn">▦</button>
-      <button class="view-btn" id="listViewBtn">☰</button>
+  <div class="nav-tabs">
+    <button class="nav-tab active" id="mySeriesTab" onclick="switchView('my-series')">Mis Series</button>
+    <button class="nav-tab" id="discoverTab" onclick="switchView('discover')">Descubrir</button>
+  </div>
+  <div id="mySeriesView">
+    <div class="stats-bar" id="statsBar"></div>
+    <div class="controls">
+      <div class="search-wrap"><span class="search-icon">🔍</span><input type="text" id="searchInput"
+          placeholder="Buscar serie..."></div>
+      <button class="filter-btn active" data-filter="all">Todas</button>
+      <button class="filter-btn" data-filter="active">En curso</button>
+      <button class="filter-btn" data-filter="waiting">Esperando</button>
+      <button class="filter-btn" data-filter="pending">Por ver</button>
+      <button class="filter-btn" data-filter="done">Finalizadas</button>
+      <button class="add-btn" id="addBtn">＋ Añadir</button>
+      <div class="view-toggle">
+        <button class="view-btn active" id="gridViewBtn">▦</button>
+        <button class="view-btn" id="listViewBtn">☰</button>
+      </div>
+    </div>
+    <div class="sections" id="sectionsContainer"></div>
+  </div>
+
+  <div id="discoverView" style="display:none">
+    <div class="sections">
+      <div class="section">
+        <div class="section-header">
+          <div class="section-dot" style="background:var(--gold)"></div>
+          <div class="section-title" style="color:var(--gold)">Tendencias de la semana</div>
+          <div class="section-line"></div>
+        </div>
+        <div class="grid" id="discoverGrid">
+          <!-- Recommendations will go here -->
+        </div>
+      </div>
     </div>
   </div>
-  <div class="sections" id="sectionsContainer"></div>
 
   <!-- DETAIL MODAL -->
   <div class="modal-overlay" id="modalOverlay">

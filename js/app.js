@@ -1,8 +1,8 @@
 // ── STATE ─────────────────────────────────────────
 let DB = { active: [], waiting: [], pending: [], done: [] };
 let tmdbCache = {}, tmdbDetailCache = {};
-let currentFilter = 'all', isGridView = true;
-let editingId = null, editSeasons = [], editTmdbDetail = null;
+let currentFilter = 'all', isGridView = true, currentView = 'my-series';
+let editingId = null, editSeasons = [], editTmdbDetail = null, trendingCache = null;
 let tmdbTimer = null, openModalId = null;
 
 function getAllShows() { return [...DB.active, ...DB.waiting, ...DB.pending, ...DB.done] }
@@ -89,6 +89,72 @@ function renderSections() {
 </div>`;
   }
   con.innerHTML = html || '<div class="no-results">🎬 No se encontraron series</div>';
+}
+
+function switchView(view) {
+  currentView = view;
+  const myView = document.getElementById('mySeriesView');
+  const discView = document.getElementById('discoverView');
+  const myTab = document.getElementById('mySeriesTab');
+  const discTab = document.getElementById('discoverTab');
+
+  if (view === 'my-series') {
+    myView.style.display = 'block';
+    discView.style.display = 'none';
+    myTab.classList.add('active');
+    discTab.classList.remove('active');
+    renderSections();
+    updateStats();
+  } else {
+    myView.style.display = 'none';
+    discView.style.display = 'block';
+    myTab.classList.remove('active');
+    discTab.classList.add('active');
+    renderDiscover();
+  }
+}
+
+async function renderDiscover() {
+  const grid = document.getElementById('discoverGrid');
+  if (!grid) return;
+  
+  if (!trendingCache) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Cargando recomendaciones...</div>';
+    trendingCache = await tmdbTrending();
+  }
+  
+  if (!trendingCache || !trendingCache.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No se pudieron cargar recomendaciones en este momento.</div>';
+    return;
+  }
+
+  grid.innerHTML = trendingCache.map(s => {
+    const poster = s.poster_path ? `${IMG}${s.poster_path}` : '';
+    const rating = s.vote_average ? s.vote_average.toFixed(1) : '';
+    const inList = getAllShows().some(x => x.tmdb && x.tmdb.id === s.id);
+    const date = s.first_air_date ? s.first_air_date.slice(0, 4) : '';
+    const safeTitle = s.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    const safePoster = s.poster_path || '';
+    const safeBackdrop = s.backdrop_path || '';
+
+    return `<div class="card">
+      <div class="card-poster" onclick="${inList ? `openModal('${getAllShows().find(x => x.tmdb && x.tmdb.id === s.id).id}')` : `discoverAdd(${s.id}, '${safeTitle}', '${safePoster}', '${date}', '${safeBackdrop}')`}">
+        ${poster ? `<img src="${poster}" alt="${s.name}" loading="lazy">` : `<div class="card-poster-placeholder"><span>📺</span><p>${s.name}</p></div>`}
+        ${rating ? `<div class="card-rating">★${rating}</div>` : ''}
+        ${inList ? `<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(76,175,125,0.9);color:#000;font-size:0.65rem;font-weight:700;padding:4px;text-align:center">EN TU LISTA</div>` : 
+        `<button class="card-next-btn" style="opacity:1" onclick="event.stopPropagation();discoverAdd(${s.id}, '${safeTitle}', '${safePoster}', '${date}', '${safeBackdrop}')">＋ Añadir a mi lista</button>`}
+      </div>
+      <div class="card-body">
+        <div class="card-title">${s.name}</div>
+        <div class="card-meta"><span class="card-ep">${date}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function discoverAdd(tmdbId, name, poster, date, backdrop) {
+  await openAdd();
+  selectTmdb(tmdbId, name, poster, date, backdrop);
 }
 
 function updateStats() {
@@ -274,7 +340,10 @@ async function saveShow() {
   if (status === 'active') { if (editingId) { const ex = findShow(editingId); if (ex && ex.nextEp && JSON.stringify(ex.seasons) === JSON.stringify(editSeasons)) nextEp = ex.nextEp; } if (!nextEp && editSeasons.length) { const last = editSeasons[editSeasons.length - 1]; const p = parseEp(last); if (p && p.e === null) nextEp = `T${p.s + 1}E1`; else nextEp = last; } }
   if (editingId) { const cat = findCat(editingId); const idx = DB[cat].findIndex(s => s.id === editingId); const prev = DB[cat][idx]; const updated = { ...prev, title, rating, status, seasons: [...editSeasons], nextEp }; if (status === cat) DB[cat][idx] = updated; else { DB[cat].splice(idx, 1); DB[status].push(updated); } }
   else { const basic = editTmdbDetail ? { id: editTmdbDetail.id, poster_path: editTmdbDetail.poster_path, backdrop_path: editTmdbDetail.backdrop_path, overview: editTmdbDetail.overview, first_air_date: editTmdbDetail.first_air_date } : null; const newShow = { id: genId(), title, rating, status, seasons: [...editSeasons], nextEp, tmdb: basic }; DB[status].push(newShow); if (!newShow.tmdb) tmdbSearch(title).then(t => { if (t) { newShow.tmdb = t; renderSections(); } }); }
-  await saveDB(); updateStats(); renderSections(); closeEdit(); showToast(editingId ? '✅ Guardado' : '✅ Serie añadida');
+  await saveDB(); updateStats(); 
+  if (currentView === 'discover') renderDiscover();
+  else renderSections();
+  closeEdit(); showToast(editingId ? '✅ Guardado' : '✅ Serie añadida');
 }
 async function deleteShow(id) { removeFromDB(id); await saveDB(); updateStats(); renderSections(); closeModal(); closeEdit(); showToast('🗑 Eliminada') }
 function confirmDelete(id) { if (confirm('¿Eliminar esta serie?')) deleteShow(id) }
