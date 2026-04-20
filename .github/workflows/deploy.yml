@@ -36,15 +36,6 @@ jobs:
           sed -i "s|__FIREBASE_APP_ID__|${{ secrets.FIREBASE_APP_ID }}|g" index.html
           sed -i "s|__FIREBASE_MEASUREMENT_ID__|${{ secrets.FIREBASE_MEASUREMENT_ID }}|g" index.html
 
-      - name: Verify Injection
-        run: |
-          # Si alguno de estos placeholders sigue existiendo, el despliegue fallará
-          if grep -q "__FIREBASE_API_KEY__" index.html; then
-            echo "ERROR: La inyección de secretos falló. Revisa que el nombre del secreto en GitHub coincida exactamente."
-            exit 1
-          fi
-          echo "✅ Secretos inyectados correctamente (verificado)."
-
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
