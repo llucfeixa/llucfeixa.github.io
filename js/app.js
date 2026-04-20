@@ -5,6 +5,7 @@ let currentFilter = 'all', isGridView = true, currentView = 'my-series';
 let editingId = null, editSeasons = [], editTmdbDetail = null, trendingCache = [], topRatedCache = [], genreCache = null;
 let tmdbTimer = null, discoverTimer = null, openModalId = null, currentGenreId = null;
 let trendingPage = 1, topRatedPage = 1, genrePage = 1, searchPage = 1;
+let trendingHasMore = true, topRatedHasMore = true, genreHasMore = true, searchHasMore = true;
 
 function getAllShows() { return [...DB.active, ...DB.waiting, ...DB.pending, ...DB.done] }
 function findShow(id) { return getAllShows().find(s => s.id === id) }
@@ -115,28 +116,16 @@ function switchView(view) {
   if (view === 'my-series') {
     myView.style.display = 'block';
     discView.style.display = 'none';
-    document.getElementById('calendarView').style.display = 'none';
     myTab.classList.add('active');
     discTab.classList.remove('active');
-    document.getElementById('calendarTab').classList.remove('active');
     renderSections();
     updateStats();
-  } else if (view === 'discover') {
-    myView.style.display = 'none';
-    discView.style.display = 'block';
-    document.getElementById('calendarView').style.display = 'none';
-    myTab.classList.remove('active');
-    discTab.classList.add('active');
-    document.getElementById('calendarTab').classList.remove('active');
-    renderDiscover();
   } else {
     myView.style.display = 'none';
-    discView.style.display = 'none';
-    document.getElementById('calendarView').style.display = 'block';
+    discView.style.display = 'block';
     myTab.classList.remove('active');
-    discTab.classList.remove('active');
-    document.getElementById('calendarTab').classList.add('active');
-    renderCalendar();
+    discTab.classList.add('active');
+    renderDiscover();
   }
 }
 
@@ -166,18 +155,20 @@ async function renderDiscover(append = false) {
     
     if (!append) {
       searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Buscando...</div>';
-      searchPage = 1;
+      searchPage = 1; searchHasMore = true;
     }
 
     const results = await tmdbMulti(q, searchPage);
     if (!append) searchGrid.innerHTML = '';
     if (!results.length && !append) {
       searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No se encontraron series.</div>';
+      searchHasMore = false;
     } else {
       searchGrid.innerHTML += results.map(s => renderDiscoverCard(s)).join('');
+      searchHasMore = results.length >= 20;
     }
     
-    updateLoadMoreBtn(searchGrid, 'loadMoreSearch', results.length >= 20, () => { searchPage++; renderDiscover(true); });
+    updateLoadMoreBtn(searchGrid, 'loadMoreSearch', searchHasMore, () => { searchPage++; renderDiscover(true); });
     return;
   }
 
@@ -189,14 +180,15 @@ async function renderDiscover(append = false) {
     
     if (!append) {
       searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Filtrando...</div>';
-      genrePage = 1;
+      genrePage = 1; genreHasMore = true;
     }
     
     const res = await tmdbDiscoverByGenre(currentGenreId, genrePage);
     if (!append) searchGrid.innerHTML = '';
     searchGrid.innerHTML += res.map(s => renderDiscoverCard(s)).join('');
+    genreHasMore = res.length >= 20;
     
-    updateLoadMoreBtn(searchGrid, 'loadMoreGenre', res.length >= 20, () => { genrePage++; renderDiscover(true); });
+    updateLoadMoreBtn(searchGrid, 'loadMoreGenre', genreHasMore, () => { genrePage++; renderDiscover(true); });
     return;
   }
 
@@ -207,26 +199,28 @@ async function renderDiscover(append = false) {
   // Trending
   if (!trendingCache.length) {
     trendingGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div></div>';
-    trendingCache = await tmdbTrending(1);
-    trendingPage = 1;
-  } else if (append && trendingPage > 1) {
+    const res = await tmdbTrending(1);
+    trendingCache = res; trendingPage = 1; trendingHasMore = res.length >= 20;
+  } else if (append && trendingHasMore) {
     const res = await tmdbTrending(trendingPage);
     trendingCache = [...trendingCache, ...res];
+    trendingHasMore = res.length >= 20;
   }
   trendingGrid.innerHTML = trendingCache.map(s => renderDiscoverCard(s)).join('');
-  updateLoadMoreBtn(trendingGrid, 'loadMoreTrending', true, () => { trendingPage++; renderDiscover(true); });
+  updateLoadMoreBtn(trendingGrid, 'loadMoreTrending', trendingHasMore, () => { trendingPage++; renderDiscover(true); });
   
   // Top Rated
   if (!topRatedCache.length) {
     topGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div></div>';
-    topRatedCache = await tmdbTopRated(1);
-    topRatedPage = 1;
-  } else if (append && topRatedPage > 1) {
+    const res = await tmdbTopRated(1);
+    topRatedCache = res; topRatedPage = 1; topRatedHasMore = res.length >= 20;
+  } else if (append && topRatedHasMore) {
     const res = await tmdbTopRated(topRatedPage);
     topRatedCache = [...topRatedCache, ...res];
+    topRatedHasMore = res.length >= 20;
   }
   topGrid.innerHTML = topRatedCache.map(s => renderDiscoverCard(s)).join('');
-  updateLoadMoreBtn(topGrid, 'loadMoreTop', true, () => { topRatedPage++; renderDiscover(true); });
+  updateLoadMoreBtn(topGrid, 'loadMoreTop', topRatedHasMore, () => { topRatedPage++; renderDiscover(true); });
 }
 
 function updateLoadMoreBtn(container, id, show, onClick) {
