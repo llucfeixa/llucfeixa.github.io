@@ -57,15 +57,41 @@ function buildPlatformBadge(detail) {
 
   if (!uniqueProviders.length) return '';
 
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
   const allowedProviders = {
-    'Netflix': `https://www.netflix.com/`,
-    'Max': `https://www.max.com/`,
-    'HBO Max': `https://play.hbomax.com/`,
-    'Disney Plus': `https://www.disneyplus.com/es-es/`,
-    'Disney+': `https://www.disneyplus.com/es-es/`,
-    'Amazon Prime Video': `https://www.primevideo.com/`,
-    'Movistar Plus+': `https://ver.movistarplus.es/`,
-    'Movistar+': `https://ver.movistarplus.es/`
+    'Netflix': {
+      web: `https://www.netflix.com/`,
+      app: `nflx://`
+    },
+    'Max': {
+      web: `https://www.max.com/`,
+      app: `max://`
+    },
+    'HBO Max': {
+      web: `https://play.hbomax.com/`,
+      app: `hbomax://`
+    },
+    'Disney Plus': {
+      web: `https://www.disneyplus.com/es-es/`,
+      app: `disneyplus://`
+    },
+    'Disney+': {
+      web: `https://www.disneyplus.com/es-es/`,
+      app: `disneyplus://`
+    },
+    'Amazon Prime Video': {
+      web: `https://www.primevideo.com/`,
+      app: `primevideo://`
+    },
+    'Movistar Plus+': {
+      web: `https://ver.movistarplus.es/`,
+      app: `movistarplus://`
+    },
+    'Movistar+': {
+      web: `https://ver.movistarplus.es/`,
+      app: `movistarplus://`
+    }
   };
 
   const filteredProviders = uniqueProviders.filter(p => allowedProviders.hasOwnProperty(p.provider_name));
@@ -74,7 +100,9 @@ function buildPlatformBadge(detail) {
   const badges = filteredProviders.map(prov => {
     const logoUrl = `${LOGO_BASE}${prov.logo_path}`;
     const name = prov.provider_name;
-    const url = allowedProviders[name];
+    const config = allowedProviders[name];
+    const url = isMobile ? config.app : config.web;
+
     return `<a class="platform-badge" href="${url}" target="_blank" rel="noopener" title="Abrir ${name}">
 <img src="${logoUrl}" alt="${name}">
 <span>${name}</span>
