@@ -1,39 +1,14 @@
-// ── TMDB API CONFIG ──────────────────────────────
-const TMDB_KEY = '__TMDB_KEY__';
-const IMG = 'https://image.tmdb.org/t/p/w342';
-const BG = 'https://image.tmdb.org/t/p/w780';
-const LOGO_BASE = 'https://image.tmdb.org/t/p/w45';
-
-// ── TMDB FUNCTIONS ───────────────────────────────
-async function tmdbSearch(title) {
-  if (tmdbCache[title] !== undefined) return tmdbCache[title];
-  try {
-    const r = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${encodeURIComponent(title)}&language=es-ES`);
-    const d = await r.json(); const res = (d.results && d.results[0]) || null;
-    tmdbCache[title] = res; return res;
-  } catch (e) { return null }
+// ── OPEN PROVIDER HELPER ─────────────────────────
+function openProvider(appUrl, webUrl) {
+  let didBlur = false;
+  window.addEventListener('blur', () => { didBlur = true; }, { once: true });
+  window.location.href = appUrl;
+  setTimeout(() => {
+    if (!didBlur) {
+      window.open(webUrl, '_blank');
+    }
+  }, 2500);
 }
-
-async function tmdbMulti(q) {
-  try { const r = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}&language=es-ES`); const d = await r.json(); return (d.results || []).slice(0, 6); } catch (e) { return [] }
-}
-
-async function tmdbDetail(id) {
-  if (!id) return null;
-  if (tmdbDetailCache[id]) return tmdbDetailCache[id];
-  try {
-    const r = await fetch(`https://api.themoviedb.org/3/tv/${id}?api_key=${TMDB_KEY}&language=es-ES&append_to_response=watch%2Fproviders`);
-    const d = await r.json(); tmdbDetailCache[id] = d; return d;
-  } catch (e) { return null }
-}
-
-async function getShowDetail(show) {
-  const basic = show.tmdb || await tmdbSearch(show.title);
-  if (!basic) return null; if (!show.tmdb) show.tmdb = basic;
-  return await tmdbDetail(basic.id);
-}
-
-function tmdbRating(d) { if (!d) return null; const v = d.vote_average; if (!v || v === 0) return null; return parseFloat(v.toFixed(1)) }
 
 // ── UI COMPONENTS FROM API DATA ───────────────────
 function buildPlatformBadge(detail) {
@@ -57,40 +32,34 @@ function buildPlatformBadge(detail) {
 
   if (!uniqueProviders.length) return '';
 
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
   const allowedProviders = {
     'Netflix': {
-      web: `https://www.netflix.com/`,
-      app: `nflx://`
+      web: 'https://www.netflix.com/',
+      app: 'nflx://'
     },
     'Max': {
-      web: `https://www.max.com/`,
-      app: `max://`
+      web: 'https://www.max.com/',
+      app: 'max://'
     },
     'HBO Max': {
-      web: `https://play.hbomax.com/`,
-      app: `hbomax://`
+      web: 'https://play.hbomax.com/',
+      app: 'hbomax://'
     },
     'Disney Plus': {
-      web: `https://www.disneyplus.com/es-es/`,
-      app: `disneyplus://`
+      web: 'https://www.disneyplus.com/es-es/',
+      app: 'disneyplus://'
     },
     'Disney+': {
-      web: `https://www.disneyplus.com/es-es/`,
-      app: `disneyplus://`
+      web: 'https://www.disneyplus.com/es-es/',
+      app: 'disneyplus://'
     },
     'Amazon Prime Video': {
-      web: `https://www.primevideo.com/`,
-      app: `primevideo://`
+      web: 'https://www.primevideo.com/',
+      app: 'primevideo://'
     },
     'Movistar Plus+': {
-      web: `https://ver.movistarplus.es/`,
-      app: `movistarplus://`
-    },
-    'Movistar+': {
-      web: `https://ver.movistarplus.es/`,
-      app: `movistarplus://`
+      web: 'https://ver.movistarplus.es/',
+      app: 'movistarplus://'
     }
   };
 
@@ -101,12 +70,14 @@ function buildPlatformBadge(detail) {
     const logoUrl = `${LOGO_BASE}${prov.logo_path}`;
     const name = prov.provider_name;
     const config = allowedProviders[name];
-    const url = isMobile ? config.app : config.web;
+    const appUrl = config.app;
+    const webUrl = config.web;
 
-    return `<a class="platform-badge" href="${url}" target="_blank" rel="noopener" title="Abrir ${name}">
-<img src="${logoUrl}" alt="${name}">
-<span>${name}</span>
-</a>`;
+    return `<a class="platform-badge" href="${webUrl}" title="Abrir ${name}"
+      onclick="event.preventDefault(); openProvider('${appUrl}', '${webUrl}')">
+      <img src="${logoUrl}" alt="${name}">
+      <span>${name}</span>
+    </a>`;
   });
 
   return `<div style="display:flex;gap:0.6rem;flex-wrap:wrap;justify-content:center">${badges.join('')}</div>`;
