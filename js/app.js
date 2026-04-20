@@ -9,7 +9,20 @@ function getAllShows() { return [...DB.active, ...DB.waiting, ...DB.pending, ...
 function findShow(id) { return getAllShows().find(s => s.id === id) }
 function findCat(id) { for (const c of ['active', 'waiting', 'pending', 'done']) if (DB[c].find(s => s.id === id)) return c; return null }
 function removeFromDB(id) { for (const c of ['active', 'waiting', 'pending', 'done']) DB[c] = DB[c].filter(s => s.id !== id) }
-function isDuplicate(title, excludeId = null) { const n = t => t.toLowerCase().trim(); return getAllShows().some(s => n(s.title) === n(title) && s.id !== excludeId) }
+function isDuplicate(title, excludeId = null, tmdbId = null) {
+  const n = t => t.toLowerCase().trim();
+  return getAllShows().some(s => {
+    if (s.id === excludeId) return false;
+    // Si tenemos IDs de TMDB, comparamos por ID (más preciso para remakes/versiones)
+    if (tmdbId && s.tmdb && s.tmdb.id) {
+      if (s.tmdb.id === tmdbId) return true;
+      // Si los IDs son diferentes, NO es un duplicado aunque el título coincida
+      if (n(s.title) === n(title)) return false;
+    }
+    // Si no hay IDs o uno no tiene ID, volvemos a comparar por título
+    return n(s.title) === n(title);
+  });
+}
 
 function moveTo(show, newStatus, newNextEp) {
   const old = findCat(show.id);
@@ -329,7 +342,8 @@ function closeEdit() { document.getElementById('editOverlay').classList.remove('
 async function saveShow() {
   const title = document.getElementById('editTitle').value.trim();
   if (!title) { showToast('⚠️ El título no puede estar vacío'); return; }
-  if (isDuplicate(title, editingId)) { showToast('⚠️ Esta serie ya está en tu lista', 'var(--red)'); document.getElementById('dupWarning').style.display = 'block'; return; }
+  const tmdbId = editTmdbDetail ? editTmdbDetail.id : null;
+  if (isDuplicate(title, editingId, tmdbId)) { showToast('⚠️ Esta serie ya está en tu lista', 'var(--red)'); document.getElementById('dupWarning').style.display = 'block'; return; }
   document.getElementById('dupWarning').style.display = 'none';
   const ratingRaw = document.getElementById('editRating').value;
   const rating = ratingRaw ? parseFloat(ratingRaw) : (editTmdbDetail ? tmdbRating(editTmdbDetail) : null);
@@ -356,7 +370,7 @@ document.getElementById('tmdbSearchInput').addEventListener('input', function ()
   tmdbTimer = setTimeout(async () => {
     const res = await tmdbMulti(q); if (!res.length) { box.style.display = 'none'; return; }
     box.innerHTML = res.map(r => {
-      const dup = isDuplicate(r.name, editingId); const safeN = r.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      const dup = isDuplicate(r.name, editingId, r.id); const safeN = r.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
       return `<div class="tmdb-result" onclick="${dup ? '' : 'selectTmdb(' + r.id + ',\'' + safeN + '\',\'' + r.poster_path + '\',\'' + r.first_air_date + '\',\'' + r.backdrop_path + '\')'}" style="${dup ? 'opacity:0.45;cursor:not-allowed' : ''}">
     ${r.poster_path ? `<img src="${IMG}${r.poster_path}" alt="">` : '<div style="width:30px;height:45px;background:var(--surface);border-radius:3px;display:flex;align-items:center;justify-content:center">📺</div>'}
     <div class="tmdb-result-info"><p>${r.name}${dup ? ' <span style="color:var(--red);font-size:0.65rem">(ya en lista)</span>' : ''}</p><span>${r.first_air_date ? r.first_air_date.slice(0, 4) : ''} ${r.vote_average ? '· ★' + r.vote_average.toFixed(1) : ''}</span></div>
@@ -366,7 +380,7 @@ document.getElementById('tmdbSearchInput').addEventListener('input', function ()
 });
 
 async function selectTmdb(tmdbId, name, poster, date, backdrop) {
-  if (isDuplicate(name, editingId)) { document.getElementById('dupWarning').style.display = 'block'; document.getElementById('editTitle').value = name; document.getElementById('tmdbResults').style.display = 'none'; document.getElementById('tmdbSearchInput').value = ''; showToast('⚠️ Esta serie ya está en tu lista', 'var(--red)'); return; }
+  if (isDuplicate(name, editingId, tmdbId)) { document.getElementById('dupWarning').style.display = 'block'; document.getElementById('editTitle').value = name; document.getElementById('tmdbResults').style.display = 'none'; document.getElementById('tmdbSearchInput').value = ''; showToast('⚠️ Esta serie ya está en tu lista', 'var(--red)'); return; }
   document.getElementById('dupWarning').style.display = 'none';
   document.getElementById('editTitle').value = name; document.getElementById('tmdbResults').style.display = 'none'; document.getElementById('tmdbSearchInput').value = '';
   document.getElementById('pickerLoading').style.display = 'flex'; document.getElementById('pickerMain').style.display = 'none'; showToast('⏳ Cargando datos...');
