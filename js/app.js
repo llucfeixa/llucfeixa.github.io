@@ -637,7 +637,22 @@ async function saveShow() {
   if (editTmdbDetail && editSeasons.length) { const inf = inferStatus(editSeasons, editTmdbDetail, status); if (inf !== status) { status = inf; document.getElementById('editStatus').value = status; } }
   let nextEp = null;
   if (status === 'waiting' && editTmdbDetail) { const ne = editTmdbDetail.next_episode_to_air; if (ne && ne.air_date) nextEp = `T${ne.season_number} (${fmtDate(ne.air_date)})`; else { const p = editSeasons.length ? parseEp(editSeasons[editSeasons.length - 1]) : null; nextEp = `T${p ? (p.s + 1) : 1}`; } }
-  if (status === 'active') { if (editingId) { const ex = findShow(editingId); if (ex && ex.nextEp && JSON.stringify(ex.seasons) === JSON.stringify(editSeasons)) nextEp = ex.nextEp; } if (!nextEp && editSeasons.length) { const last = editSeasons[editSeasons.length - 1]; const p = parseEp(last); if (p && p.e === null) nextEp = `T${p.s + 1}E1`; else nextEp = last; } }
+  if (status === 'active') {
+    if (editingId) {
+      const ex = findShow(editingId);
+      if (ex && ex.nextEp && JSON.stringify(ex.seasons) === JSON.stringify(editSeasons)) nextEp = ex.nextEp;
+    }
+    if (!nextEp) {
+      if (editSeasons.length) {
+        const last = editSeasons[editSeasons.length - 1];
+        const p = parseEp(last);
+        if (p && p.e === null) nextEp = `T${p.s + 1}E1`;
+        else nextEp = last;
+      } else {
+        nextEp = 'T1E1';
+      }
+    }
+  }
   if (editingId) { const cat = findCat(editingId); const idx = DB[cat].findIndex(s => s.id === editingId); const prev = DB[cat][idx]; const updated = { ...prev, title, rating, status, seasons: [...editSeasons], nextEp }; if (status === cat) DB[cat][idx] = updated; else { DB[cat].splice(idx, 1); DB[status].push(updated); } }
   else { const basic = editTmdbDetail ? { id: editTmdbDetail.id, poster_path: editTmdbDetail.poster_path, backdrop_path: editTmdbDetail.backdrop_path, overview: editTmdbDetail.overview, first_air_date: editTmdbDetail.first_air_date } : null; const newShow = { id: genId(), title, rating, status, seasons: [...editSeasons], nextEp, tmdb: basic }; DB[status].push(newShow); if (!newShow.tmdb) tmdbSearch(title).then(t => { if (t) { newShow.tmdb = t; renderSections(); } }); }
   await saveDB(); updateStats(); 
