@@ -4,8 +4,9 @@ let tmdbCache = {}, tmdbDetailCache = {};
 let currentFilter = 'all', isGridView = true, currentView = 'my-series';
 let editingId = null, editSeasons = [], editTmdbDetail = null, trendingCache = [], topRatedCache = [], genreCache = null;
 let tmdbTimer = null, discoverTimer = null, openModalId = null, currentGenreId = null;
-let trendingPage = 1, topRatedPage = 1, genrePage = 1, searchPage = 1;
-let trendingHasMore = true, topRatedHasMore = true, genreHasMore = true, searchHasMore = true;
+let trendingPage = 1, topRatedPage = 1, searchPage = 1;
+let trendingHasMore = true, topRatedHasMore = true, searchHasMore = true;
+let genreStates = {}; // Stores { page, cache, hasMore } per genreId
 
 function getAllShows() { return [...DB.active, ...DB.waiting, ...DB.pending, ...DB.done] }
 function findShow(id) { return getAllShows().find(s => s.id === id) }
@@ -200,21 +201,29 @@ async function renderDiscover(append = false) {
     // Cleanup other buttons
     ['loadMoreTrending', 'loadMoreTop', 'loadMoreSearch'].forEach(id => { const b = document.getElementById(id); if (b) b.remove(); });
 
-    if (!append) {
+    if (!genreStates[currentGenreId]) {
+      genreStates[currentGenreId] = { page: 1, cache: [], hasMore: true };
+    }
+    const state = genreStates[currentGenreId];
+
+    if (!state.cache.length && !append) {
       searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Filtrando...</div>';
-      genrePage = 1; genreHasMore = true;
     }
     
-    const res = await tmdbDiscoverByGenre(currentGenreId, genrePage);
-    if (!append) searchGrid.innerHTML = '';
-    if (res.length) {
-      searchGrid.innerHTML += res.map(s => renderDiscoverCard(s)).join('');
-      genreHasMore = res.length >= 20;
-    } else {
-      genreHasMore = false;
+    if (append && state.hasMore) {
+      const res = await tmdbDiscoverByGenre(currentGenreId, state.page);
+      state.cache = [...state.cache, ...res];
+      state.hasMore = res.length >= 20;
+    } else if (!state.cache.length) {
+      const res = await tmdbDiscoverByGenre(currentGenreId, 1);
+      state.cache = res; state.page = 1; state.hasMore = res.length >= 20;
     }
+
+    // Deduplicate cache just in case
+    state.cache = [...new Map(state.cache.map(s => [s.id, s])).values()];
     
-    updateLoadMoreBtn(searchGrid, 'loadMoreGenre', genreHasMore, () => { genrePage++; renderDiscover(true); });
+    searchGrid.innerHTML = state.cache.map(s => renderDiscoverCard(s)).join('');
+    updateLoadMoreBtn(searchGrid, 'loadMoreGenre', state.hasMore, () => { state.page++; renderDiscover(true); });
     return;
   }
 
@@ -231,11 +240,11 @@ async function renderDiscover(append = false) {
     trendingCache = res; trendingPage = 1; trendingHasMore = res.length >= 20;
   } else if (append && trendingHasMore) {
     const res = await tmdbTrending(trendingPage);
-    if (res.length) {
-      trendingCache = [...trendingCache, ...res];
-      trendingHasMore = res.length >= 20;
-    } else trendingHasMore = false;
+    trendingCache = [...trendingCache, ...res];
+    trendingHasMore = res.length >= 20;
   }
+  // Deduplicate
+  trendingCache = [...new Map(trendingCache.map(s => [s.id, s])).values()];
   trendingGrid.innerHTML = trendingCache.map(s => renderDiscoverCard(s)).join('');
   updateLoadMoreBtn(trendingGrid, 'loadMoreTrending', trendingHasMore, () => { trendingPage++; renderDiscover(true); });
   
@@ -246,11 +255,11 @@ async function renderDiscover(append = false) {
     topRatedCache = res; topRatedPage = 1; topRatedHasMore = res.length >= 20;
   } else if (append && topRatedHasMore) {
     const res = await tmdbTopRated(topRatedPage);
-    if (res.length) {
-      topRatedCache = [...topRatedCache, ...res];
-      topRatedHasMore = res.length >= 20;
-    } else topRatedHasMore = false;
+    topRatedCache = [...topRatedCache, ...res];
+    topRatedHasMore = res.length >= 20;
   }
+  // Deduplicate
+  topRatedCache = [...new Map(topRatedCache.map(s => [s.id, s])).values()];
   topGrid.innerHTML = topRatedCache.map(s => renderDiscoverCard(s)).join('');
   updateLoadMoreBtn(topGrid, 'loadMoreTop', topRatedHasMore, () => { topRatedPage++; renderDiscover(true); });
 }
