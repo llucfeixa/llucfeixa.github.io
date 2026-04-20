@@ -1619,8 +1619,8 @@
       if (ne && ne.season_number === newSeason && ne.episode_number > newEp) isSeasonFinished = false;
 
       if (!isSeasonFinished) {
-        let newNextEp = `T${newSeason}E${newEp + 1}`;
-        if (ne && ne.season_number === newSeason && ne.episode_number === newEp + 1 && ne.air_date) {
+        let newNextEp = `T${newSeason}E${newEp}`;
+        if (ne && ne.season_number === newSeason && ne.episode_number === newEp && ne.air_date) {
           newNextEp += ` (${fmtDate(ne.air_date)})`;
         }
         return {
@@ -1958,10 +1958,7 @@
       const ns = [];
       for (let s = 1; s < sNum; s++)ns.push(`T${s}`);
       if (eVal === 'all' || !eVal) ns.push(`T${sNum}`);
-      else {
-        const en = parseInt(eVal);
-        if (en > 1) ns.push(`T${sNum}E${en - 1}`);
-      }
+      else ns.push(`T${sNum}E${eVal}`);
       editSeasons = ns; renderSeasonTags();
       document.getElementById('pickerSeason').value = ''; resetEpSelect();
       const label = eVal && eVal !== 'all' ? `T${sNum}E${eVal}` : `T${sNum} (completa)`;
@@ -2025,8 +2022,10 @@
           if (ex && ex.nextEp && JSON.stringify(ex.seasons) === JSON.stringify(editSeasons)) nextEp = ex.nextEp;
         }
         if (!nextEp && editSeasons.length) {
-          const p = parseEp(editSeasons[editSeasons.length - 1]);
-          if (p) nextEp = `T${p.s}E${(p.e || 0) + 1}`;
+          const last = editSeasons[editSeasons.length - 1];
+          const p = parseEp(last);
+          if (p && p.e === null) nextEp = `T${p.s + 1}E1`;
+          else nextEp = last;
         }
       }
 
