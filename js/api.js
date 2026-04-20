@@ -1,3 +1,40 @@
+// ── TMDB API CONFIG ──────────────────────────────
+const TMDB_KEY = '__TMDB_KEY__';
+const IMG = 'https://image.tmdb.org/t/p/w342';
+const BG = 'https://image.tmdb.org/t/p/w780';
+const LOGO_BASE = 'https://image.tmdb.org/t/p/w45';
+
+// ── TMDB FUNCTIONS ───────────────────────────────
+async function tmdbSearch(title) {
+  if (tmdbCache[title] !== undefined) return tmdbCache[title];
+  try {
+    const r = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${encodeURIComponent(title)}&language=es-ES`);
+    const d = await r.json(); const res = (d.results && d.results[0]) || null;
+    tmdbCache[title] = res; return res;
+  } catch (e) { return null }
+}
+
+async function tmdbMulti(q) {
+  try { const r = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}&language=es-ES`); const d = await r.json(); return (d.results || []).slice(0, 6); } catch (e) { return [] }
+}
+
+async function tmdbDetail(id) {
+  if (!id) return null;
+  if (tmdbDetailCache[id]) return tmdbDetailCache[id];
+  try {
+    const r = await fetch(`https://api.themoviedb.org/3/tv/${id}?api_key=${TMDB_KEY}&language=es-ES&append_to_response=watch%2Fproviders`);
+    const d = await r.json(); tmdbDetailCache[id] = d; return d;
+  } catch (e) { return null }
+}
+
+async function getShowDetail(show) {
+  const basic = show.tmdb || await tmdbSearch(show.title);
+  if (!basic) return null; if (!show.tmdb) show.tmdb = basic;
+  return await tmdbDetail(basic.id);
+}
+
+function tmdbRating(d) { if (!d) return null; const v = d.vote_average; if (!v || v === 0) return null; return parseFloat(v.toFixed(1)) }
+
 // ── OPEN PROVIDER HELPER ─────────────────────────
 function openProvider(appUrl, webUrl) {
   let didBlur = false;
