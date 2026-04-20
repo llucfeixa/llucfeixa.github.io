@@ -70,15 +70,40 @@
   </div>
 
   <div id="discoverView" style="display:none">
-    <div class="sections">
-      <div class="section">
-        <div class="section-header">
-          <div class="section-dot" style="background:var(--gold)"></div>
-          <div class="section-title" style="color:var(--gold)">Tendencias de la semana</div>
-          <div class="section-line"></div>
+    <div class="controls">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="discoverSearchInput" placeholder="Buscar cualquier serie en TMDB...">
+      </div>
+    </div>
+    <div class="sections" id="discoverSections">
+      <!-- Search results will appear here if searching -->
+      <div id="discoverDefaultContent">
+        <div class="section">
+          <div class="section-header">
+            <div class="section-dot" style="background:var(--gold)"></div>
+            <div class="section-title" style="color:var(--gold)">Tendencias de la semana</div>
+            <div class="section-line"></div>
+          </div>
+          <div class="grid" id="discoverTrendingGrid"></div>
         </div>
-        <div class="grid" id="discoverGrid">
-          <!-- Recommendations will go here -->
+        <div class="section" style="margin-top:2rem">
+          <div class="section-header">
+            <div class="section-dot" style="background:var(--purple)"></div>
+            <div class="section-title" style="color:var(--purple)">Mejor valoradas</div>
+            <div class="section-line"></div>
+          </div>
+          <div class="grid" id="discoverTopGrid"></div>
+        </div>
+      </div>
+      <div id="discoverSearchResults" style="display:none">
+        <div class="section">
+          <div class="section-header">
+            <div class="section-dot" style="background:var(--blue)"></div>
+            <div class="section-title" style="color:var(--blue)">Resultados de búsqueda</div>
+            <div class="section-line"></div>
+          </div>
+          <div class="grid" id="discoverSearchGrid"></div>
         </div>
       </div>
     </div>

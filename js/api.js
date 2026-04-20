@@ -22,8 +22,20 @@ async function tmdbTrending() {
   } catch (e) { return [] }
 }
 
+async function tmdbTopRated() {
+  try {
+    const r = await fetch(`https://api.themoviedb.org/3/tv/top_rated?api_key=${TMDB_KEY}&language=es-ES&page=1`);
+    const d = await r.json();
+    return d.results || [];
+  } catch (e) { return [] }
+}
+
 async function tmdbMulti(q) {
-  try { const r = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}&language=es-ES`); const d = await r.json(); return (d.results || []).slice(0, 6); } catch (e) { return [] }
+  try {
+    const r = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}&language=es-ES`);
+    const d = await r.json();
+    return d.results || [];
+  } catch (e) { return [] }
 }
 
 async function tmdbDetail(id) {

@@ -2,8 +2,8 @@
 let DB = { active: [], waiting: [], pending: [], done: [] };
 let tmdbCache = {}, tmdbDetailCache = {};
 let currentFilter = 'all', isGridView = true, currentView = 'my-series';
-let editingId = null, editSeasons = [], editTmdbDetail = null, trendingCache = null;
-let tmdbTimer = null, openModalId = null;
+let editingId = null, editSeasons = [], editTmdbDetail = null, trendingCache = null, topRatedCache = null;
+let tmdbTimer = null, discoverTimer = null, openModalId = null;
 
 function getAllShows() { return [...DB.active, ...DB.waiting, ...DB.pending, ...DB.done] }
 function findShow(id) { return getAllShows().find(s => s.id === id) }
@@ -128,41 +128,80 @@ function switchView(view) {
 }
 
 async function renderDiscover() {
-  const grid = document.getElementById('discoverGrid');
-  if (!grid) return;
+  const trendingGrid = document.getElementById('discoverTrendingGrid');
+  const topGrid = document.getElementById('discoverTopGrid');
+  if (!trendingGrid || !topGrid) return;
   
   if (!trendingCache) {
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Cargando recomendaciones...</div>';
+    trendingGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Cargando tendencias...</div>';
     trendingCache = await tmdbTrending();
   }
   
-  if (!trendingCache || !trendingCache.length) {
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No se pudieron cargar recomendaciones en este momento.</div>';
+  if (!topRatedCache) {
+    topGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Cargando mejor valoradas...</div>';
+    topRatedCache = await tmdbTopRated();
+  }
+
+  const renderGrid = (grid, data) => {
+    if (!data || !data.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)">No se pudieron cargar series.</div>';
+      return;
+    }
+    grid.innerHTML = data.map(s => renderDiscoverCard(s)).join('');
+  };
+
+  renderGrid(trendingGrid, trendingCache);
+  renderGrid(topGrid, topRatedCache);
+}
+
+function renderDiscoverCard(s) {
+  const poster = s.poster_path ? `${IMG}${s.poster_path}` : '';
+  const rating = s.vote_average ? s.vote_average.toFixed(1) : '';
+  const inList = getAllShows().some(x => x.tmdb && x.tmdb.id === s.id);
+  const date = s.first_air_date ? s.first_air_date.slice(0, 4) : '';
+  const safeTitle = s.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  const safePoster = s.poster_path || '';
+  const safeBackdrop = s.backdrop_path || '';
+
+  return `<div class="card">
+    <div class="card-poster" onclick="${inList ? `openModal('${getAllShows().find(x => x.tmdb && x.tmdb.id === s.id).id}')` : `discoverAdd(${s.id}, '${safeTitle}', '${safePoster}', '${date}', '${safeBackdrop}')`}">
+      ${poster ? `<img src="${poster}" alt="${s.name}" loading="lazy">` : `<div class="card-poster-placeholder"><span>📺</span><p>${s.name}</p></div>`}
+      ${rating ? `<div class="card-rating">★${rating}</div>` : ''}
+      ${inList ? `<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(76,175,125,0.9);color:#000;font-size:0.65rem;font-weight:700;padding:4px;text-align:center">EN TU LISTA</div>` : 
+      `<button class="card-next-btn" style="opacity:1" onclick="event.stopPropagation();discoverAdd(${s.id}, '${safeTitle}', '${safePoster}', '${date}', '${safeBackdrop}')">＋ Añadir a mi lista</button>`}
+    </div>
+    <div class="card-body">
+      <div class="card-title">${s.name}</div>
+      <div class="card-meta"><span class="card-ep">${date}</span></div>
+    </div>
+  </div>`;
+}
+
+async function handleDiscoverSearch() {
+  const q = document.getElementById('discoverSearchInput').value.trim();
+  const defContent = document.getElementById('discoverDefaultContent');
+  const searchResults = document.getElementById('discoverSearchResults');
+  const searchGrid = document.getElementById('discoverSearchGrid');
+
+  if (!q) {
+    defContent.style.display = 'block';
+    searchResults.style.display = 'none';
     return;
   }
 
-  grid.innerHTML = trendingCache.map(s => {
-    const poster = s.poster_path ? `${IMG}${s.poster_path}` : '';
-    const rating = s.vote_average ? s.vote_average.toFixed(1) : '';
-    const inList = getAllShows().some(x => x.tmdb && x.tmdb.id === s.id);
-    const date = s.first_air_date ? s.first_air_date.slice(0, 4) : '';
-    const safeTitle = s.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-    const safePoster = s.poster_path || '';
-    const safeBackdrop = s.backdrop_path || '';
+  defContent.style.display = 'none';
+  searchResults.style.display = 'block';
+  searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Buscando en TMDB...</div>';
 
-    return `<div class="card">
-      <div class="card-poster" onclick="${inList ? `openModal('${getAllShows().find(x => x.tmdb && x.tmdb.id === s.id).id}')` : `discoverAdd(${s.id}, '${safeTitle}', '${safePoster}', '${date}', '${safeBackdrop}')`}">
-        ${poster ? `<img src="${poster}" alt="${s.name}" loading="lazy">` : `<div class="card-poster-placeholder"><span>📺</span><p>${s.name}</p></div>`}
-        ${rating ? `<div class="card-rating">★${rating}</div>` : ''}
-        ${inList ? `<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(76,175,125,0.9);color:#000;font-size:0.65rem;font-weight:700;padding:4px;text-align:center">EN TU LISTA</div>` : 
-        `<button class="card-next-btn" style="opacity:1" onclick="event.stopPropagation();discoverAdd(${s.id}, '${safeTitle}', '${safePoster}', '${date}', '${safeBackdrop}')">＋ Añadir a mi lista</button>`}
-      </div>
-      <div class="card-body">
-        <div class="card-title">${s.name}</div>
-        <div class="card-meta"><span class="card-ep">${date}</span></div>
-      </div>
-    </div>`;
-  }).join('');
+  clearTimeout(discoverTimer);
+  discoverTimer = setTimeout(async () => {
+    const results = await tmdbMulti(q); // Reuse existing tmdbMulti which searches TV
+    if (!results.length) {
+      searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No se encontraron series para "' + q + '"</div>';
+      return;
+    }
+    searchGrid.innerHTML = results.map(s => renderDiscoverCard(s)).join('');
+  }, 450);
 }
 
 async function discoverAdd(tmdbId, name, poster, date, backdrop) {
@@ -404,6 +443,7 @@ document.getElementById('editClose').addEventListener('click', closeEdit);
 document.getElementById('editCancelBtn').addEventListener('click', closeEdit);
 document.getElementById('editOverlay').addEventListener('click', e => { if (e.target === document.getElementById('editOverlay')) closeEdit(); });
 document.getElementById('editTitle').addEventListener('input', () => { document.getElementById('dupWarning').style.display = 'none'; });
+document.getElementById('discoverSearchInput').addEventListener('input', handleDiscoverSearch);
 
 // ── INIT ──────────────────────────────────────────
 async function init() {
