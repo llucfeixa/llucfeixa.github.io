@@ -36,7 +36,7 @@ async function computeAdvance(show, detail) {
       newSeasons: [...baseSeasons, `T${newSeason}E${newEp}`],
       newNextEp,
       newStatus: 'active',
-      toastMsg: `✅ Marcado: T${newSeason}E${newEp}`
+      toastMsg: `✅ Marcado: T${newSeason}E${newEp - 1}`
     };
   } else {
     const newSeasons = [...baseSeasons, `T${newSeason}`];
@@ -86,7 +86,7 @@ function inferStatus(seaList, detail, manual) {
   let atEnd = curEp === null;
   if (ne && ne.season_number === curSeason && ne.episode_number > (curEp || 0)) atEnd = false;
 
-  if (!atEnd) return 'active'; 
+  if (!atEnd) return 'active';
   const nextSeaNum = curSeason + 1;
   const nextSeaTmdb = tmdbSeasons.find(s => s.season_number === nextSeaNum);
   const tmdbSt = detail.status;
