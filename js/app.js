@@ -2,8 +2,9 @@
 let DB = { active: [], waiting: [], pending: [], done: [] };
 let tmdbCache = {}, tmdbDetailCache = {};
 let currentFilter = 'all', isGridView = true, currentView = 'my-series';
-let editingId = null, editSeasons = [], editTmdbDetail = null, trendingCache = null, topRatedCache = null, genreCache = null;
+let editingId = null, editSeasons = [], editTmdbDetail = null, trendingCache = [], topRatedCache = [], genreCache = null;
 let tmdbTimer = null, discoverTimer = null, openModalId = null, currentGenreId = null;
+let trendingPage = 1, topRatedPage = 1, genrePage = 1;
 
 function getAllShows() { return [...DB.active, ...DB.waiting, ...DB.pending, ...DB.done] }
 function findShow(id) { return getAllShows().find(s => s.id === id) }
@@ -139,7 +140,7 @@ function switchView(view) {
   }
 }
 
-async function renderDiscover() {
+async function renderDiscover(append = false) {
   const trendingGrid = document.getElementById('discoverTrendingGrid');
   const topGrid = document.getElementById('discoverTopGrid');
   const genreDiv = document.getElementById('genreFilters');
@@ -156,32 +157,54 @@ async function renderDiscover() {
     document.getElementById('discoverSearchResults').style.display = 'block';
     const grid = document.getElementById('discoverSearchGrid');
     document.querySelector('#discoverSearchResults .section-title').textContent = 'Género: ' + (genreCache.find(g => g.id === currentGenreId).name);
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Filtrando...</div>';
-    const res = await tmdbDiscoverByGenre(currentGenreId);
-    grid.innerHTML = res.map(s => renderDiscoverCard(s)).join('');
+    if (!append) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Filtrando...</div>';
+    
+    const res = await tmdbDiscoverByGenre(currentGenreId, genrePage);
+    if (append) grid.innerHTML += res.map(s => renderDiscoverCard(s)).join('');
+    else grid.innerHTML = res.map(s => renderDiscoverCard(s)).join('');
+    
+    if (res.length >= 20) {
+      if (!document.getElementById('loadMoreGenre')) {
+        const btn = document.createElement('button');
+        btn.id = 'loadMoreGenre'; btn.className = 'btn btn-ghost'; btn.style = 'margin:1rem auto;display:block';
+        btn.textContent = 'Cargar más'; btn.onclick = () => { genrePage++; renderDiscover(true); };
+        grid.after(btn);
+      }
+    } else if (document.getElementById('loadMoreGenre')) document.getElementById('loadMoreGenre').remove();
     return;
   }
   
-  if (!trendingCache) {
-    trendingGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Cargando tendencias...</div>';
-    trendingCache = await tmdbTrending();
+  if (!trendingCache.length || (append && trendingPage > 1)) {
+    if (!append) trendingGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Cargando tendencias...</div>';
+    const res = await tmdbTrending(trendingPage);
+    trendingCache = append ? [...trendingCache, ...res] : res;
+    trendingGrid.innerHTML = trendingCache.map(s => renderDiscoverCard(s)).join('');
+    
+    if (res.length >= 20) {
+      if (!document.getElementById('loadMoreTrending')) {
+        const btn = document.createElement('button');
+        btn.id = 'loadMoreTrending'; btn.className = 'btn btn-ghost'; btn.style = 'margin:1rem auto;display:block';
+        btn.textContent = 'Cargar más'; btn.onclick = () => { trendingPage++; renderDiscover(true); };
+        trendingGrid.after(btn);
+      }
+    }
   }
   
-  if (!topRatedCache) {
-    topGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Cargando mejor valoradas...</div>';
-    topRatedCache = await tmdbTopRated();
-  }
+  if (!topRatedCache.length || (append && topRatedPage > 1)) {
+    if (!append) topGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Cargando mejor valoradas...</div>';
+    const res = await tmdbTopRated(topRatedPage);
+    topRatedCache = append ? [...topRatedCache, ...res] : res;
+    topGrid.innerHTML = topRatedCache.map(s => renderDiscoverCard(s)).join('');
 
-  const renderGrid = (grid, data) => {
-    if (!data || !data.length) {
-      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)">No se pudieron cargar series.</div>';
-      return;
+    if (res.length >= 20) {
+      if (!document.getElementById('loadMoreTop')) {
+        const btn = document.createElement('button');
+        btn.id = 'loadMoreTop'; btn.className = 'btn btn-ghost'; btn.style = 'margin:1rem auto;display:block';
+        btn.textContent = 'Cargar más'; btn.onclick = () => { topRatedPage++; renderDiscover(true); };
+        topGrid.after(btn);
+      }
     }
-    grid.innerHTML = data.map(s => renderDiscoverCard(s)).join('');
-  };
-
-  renderGrid(trendingGrid, trendingCache);
-  renderGrid(topGrid, topRatedCache);
+  }
 }
 
 function renderDiscoverCard(s) {
@@ -194,13 +217,12 @@ function renderDiscoverCard(s) {
   const safeBackdrop = s.backdrop_path || '';
 
   return `<div class="card">
-    <div class="card-poster" onclick="${inList ? `openModal('${getAllShows().find(x => x.tmdb && x.tmdb.id === s.id).id}')` : `discoverAdd(${s.id}, '${safeTitle}', '${safePoster}', '${date}', '${safeBackdrop}')`}">
+    <div class="card-poster" onclick="openModal('${s.id}', true)">
       ${poster ? `<img src="${poster}" alt="${s.name}" loading="lazy">` : `<div class="card-poster-placeholder"><span>📺</span><p>${s.name}</p></div>`}
       ${rating ? `<div class="card-rating">★${rating}</div>` : ''}
-      ${inList ? `<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(76,175,125,0.9);color:#000;font-size:0.65rem;font-weight:700;padding:4px;text-align:center">EN TU LISTA</div>` : 
-      `<button class="card-next-btn" style="opacity:1" onclick="event.stopPropagation();discoverAdd(${s.id}, '${safeTitle}', '${safePoster}', '${date}', '${safeBackdrop}')">＋ Añadir a mi lista</button>`}
+      ${inList ? `<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(76,175,125,0.9);color:#000;font-size:0.65rem;font-weight:700;padding:4px;text-align:center">EN TU LISTA</div>` : ''}
     </div>
-    <div class="card-body">
+    <div class="card-body" onclick="openModal('${s.id}', true)">
       <div class="card-title">${s.name}</div>
       <div class="card-meta"><span class="card-ep">${date}</span></div>
     </div>
@@ -303,7 +325,7 @@ function updateStats() {
     if (s.seasons) {
       s.seasons.forEach(tag => {
         const p = parseEp(tag);
-        if (p) totalEps += p.e || 10; // Assume 10 eps if whole season
+        if (p) totalEps += p.e || 10;
       });
     }
   });
@@ -313,6 +335,8 @@ function updateStats() {
 <div class="stat"><div class="stat-n">${getAllShows().length}</div><div class="stat-l">Total</div></div>
 <div class="stat"><div class="stat-n" style="color:var(--green)">${DB.active.length}</div><div class="stat-l">En curso</div></div>
 <div class="stat"><div class="stat-n" style="color:var(--blue)">${DB.waiting.length}</div><div class="stat-l">Esperando</div></div>
+<div class="stat"><div class="stat-n" style="color:var(--purple)">${DB.pending.length}</div><div class="stat-l">Por ver</div></div>
+<div class="stat"><div class="stat-n" style="color:var(--gold)">${DB.done.length}</div><div class="stat-l">Finalizadas</div></div>
 <div class="stat"><div class="stat-n" style="color:var(--gold)">${hours}h</div><div class="stat-l">Visto</div></div>`;
 }
 
@@ -334,14 +358,26 @@ function renderModalSeasons(show) {
     : '<span style="color:var(--muted);font-size:0.8rem">Sin temporadas</span>';
 }
 
-async function openModal(id) {
-  const show = findShow(id); if (!show) return;
-  openModalId = id;
-  const cfg = sc(show.status);
+async function openModal(id, isTmdbId = false) {
+  let show = null;
+  if (isTmdbId) {
+    const tmdbId = parseInt(id);
+    show = getAllShows().find(s => s.tmdb && s.tmdb.id === tmdbId);
+    if (!show) show = { tmdb: { id: tmdbId }, title: 'Cargando...', seasons: [] };
+  } else {
+    show = findShow(id);
+  }
+  if (!show) return;
+  
+  const inList = show.id !== undefined;
+  openModalId = show.id || null;
+  
+  const cfg = sc(show.status || 'pending');
   document.getElementById('modalTitle').textContent = show.title;
-  document.getElementById('modalBadge').innerHTML = `<span class="badge ${cfg.badge}" style="margin-bottom:0.4rem">${cfg.label}</span>`;
+  document.getElementById('modalBadge').innerHTML = inList ? `<span class="badge ${cfg.badge}" style="margin-bottom:0.4rem">${cfg.label}</span>` : '';
   document.getElementById('modalRating').textContent = show.rating ? `★ ${Number(show.rating).toFixed(1)}/10` : '';
   document.getElementById('modalYear').textContent = '';
+  document.getElementById('modalExtraInfo').textContent = '';
   document.getElementById('modalOverview').textContent = 'Cargando...';
   document.getElementById('modalBackdrop').src = '';
   document.getElementById('modalLinkWrap').innerHTML = '';
@@ -351,30 +387,49 @@ async function openModal(id) {
   document.getElementById('modalCastWrap').style.display = 'none';
   document.getElementById('modalSimilarWrap').style.display = 'none';
   document.getElementById('modalPlatforms').innerHTML = '';
-  document.getElementById('modalEditBtn').onclick = () => { closeModal(); openEdit(id) };
+  
+  if (inList) {
+    document.getElementById('modalEditBtn').style.display = 'block';
+    document.getElementById('modalAddBtn').style.display = 'none';
+    document.getElementById('modalEditBtn').onclick = () => { closeModal(); openEdit(show.id) };
+  } else {
+    document.getElementById('modalEditBtn').style.display = 'none';
+    document.getElementById('modalAddBtn').style.display = 'block';
+  }
+
   renderModalSeasons(show);
-  const hasNext = show.status === 'active' && show.nextEp;
+  const hasNext = inList && show.status === 'active' && show.nextEp;
   const nb = document.getElementById('modalNextEpBlock');
   if (hasNext) {
     nb.style.display = 'block';
     document.getElementById('modalNextEpVal').textContent = show.nextEp;
-    document.getElementById('advanceBtn').onclick = () => advanceFromModal(id);
-  }
-  else nb.style.display = 'none';
+    document.getElementById('advanceBtn').onclick = () => advanceFromModal(show.id);
+  } else nb.style.display = 'none';
+  
   document.getElementById('modalOverlay').classList.add('open');
 
-  const detail = await getShowDetail(show);
-  const basic = show.tmdb;
-  if (basic) {
-    if (basic.backdrop_path) document.getElementById('modalBackdrop').src = `${BG}${basic.backdrop_path}`;
-    if (basic.overview) document.getElementById('modalOverview').textContent = basic.overview;
-    if (basic.first_air_date) document.getElementById('modalYear').textContent = basic.first_air_date.slice(0, 4);
-  } else document.getElementById('modalOverview').textContent = 'Sin descripción disponible.';
-
+  const detail = await (isTmdbId ? tmdbDetail(id) : getShowDetail(show));
   if (detail) {
+    document.getElementById('modalTitle').textContent = detail.name || detail.original_name || show.title;
+    if (detail.backdrop_path) document.getElementById('modalBackdrop').src = `${BG}${detail.backdrop_path}`;
     if (detail.overview) document.getElementById('modalOverview').textContent = detail.overview;
     if (detail.first_air_date) document.getElementById('modalYear').textContent = detail.first_air_date.slice(0, 4);
+    
+    // Extra info
+    const runtime = detail.episode_run_time && detail.episode_run_time.length ? `${detail.episode_run_time[0]} min` : '';
+    document.getElementById('modalExtraInfo').textContent = `${detail.number_of_seasons} temp. · ${detail.number_of_episodes} eps. ${runtime ? `· ${runtime}` : ''}`;
+    
+    if (!inList) {
+      document.getElementById('modalAddBtn').onclick = () => { 
+        closeModal(); 
+        openAdd(); 
+        selectTmdb(detail.id, detail.name, detail.poster_path, detail.first_air_date, detail.backdrop_path);
+      };
+    }
+
     document.getElementById('modalPlatforms').innerHTML = buildPlatformBadge(detail);
+
+    // Trailers... (rest of the logic stays same)
 
     // Trailers
     tmdbVideos(detail.id).then(videos => {

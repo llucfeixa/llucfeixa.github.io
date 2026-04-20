@@ -49,7 +49,6 @@
   <div class="nav-tabs">
     <button class="nav-tab active" id="mySeriesTab" onclick="switchView('my-series')">Mis Series</button>
     <button class="nav-tab" id="discoverTab" onclick="switchView('discover')">Descubrir</button>
-    <button class="nav-tab" id="calendarTab" onclick="switchView('calendar')">Calendario</button>
   </div>
   <div id="mySeriesView">
     <div class="stats-bar" id="statsBar"></div>
@@ -113,20 +112,7 @@
     </div>
   </div>
 
-  <div id="calendarView" style="display:none">
-    <div class="sections">
-      <div class="section">
-        <div class="section-header">
-          <div class="section-dot" style="background:var(--blue)"></div>
-          <div class="section-title" style="color:var(--blue)">Estrenos de la semana</div>
-          <div class="section-line"></div>
-        </div>
-        <div id="calendarGrid" class="grid">
-          <!-- Calendar items will go here -->
-        </div>
-      </div>
-    </div>
-  </div>
+  <div id="calendarView" style="display:none"></div>
 
   <!-- DETAIL MODAL -->
   <div class="modal-overlay" id="modalOverlay">
@@ -144,10 +130,12 @@
         <div style="display:flex;gap:0.7rem;margin-bottom:0.75rem;flex-wrap:wrap;align-items:center">
           <span id="modalRating" style="color:var(--gold);font-weight:600;font-size:0.9rem"></span>
           <span id="modalYear" style="color:var(--muted);font-size:0.82rem"></span>
+          <span id="modalExtraInfo" style="color:var(--muted);font-size:0.82rem;opacity:0.8"></span>
           <button id="modalEditBtn"
             style="margin-left:auto;padding:0.35rem 0.8rem;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-size:0.76rem;font-family:'DM Sans',sans-serif;transition:all 0.18s"
             onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'"
             onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✏️ Editar</button>
+          <button id="modalAddBtn" class="btn btn-primary" style="margin-left:auto;display:none;padding:0.35rem 0.8rem;font-size:0.76rem">＋ Añadir a mi lista</button>
         </div>
         <p id="modalOverview" style="color:var(--muted);font-size:0.86rem;line-height:1.65;margin-bottom:0.9rem"></p>
         

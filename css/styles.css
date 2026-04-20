@@ -1213,24 +1213,25 @@ h3 {
 
 .cast-list {
   display: flex;
-  gap: 0.8rem;
-  overflow-x: auto;
+  gap: 1.2rem 0.8rem;
+  flex-wrap: wrap;
+  justify-content: center;
   padding-bottom: 0.5rem;
-  scrollbar-width: thin;
 }
 .cast-item {
-  width: 70px;
+  width: 85px;
   flex-shrink: 0;
   text-align: center;
 }
 .cast-img {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
+  width: 70px;
+  height: 70px;
+  border-radius: 12px;
   object-fit: cover;
-  margin: 0 auto 0.3rem;
+  margin: 0 auto 0.4rem;
   background: var(--surface2);
   border: 1px solid var(--border);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
 .cast-name {
   font-size: 0.65rem;

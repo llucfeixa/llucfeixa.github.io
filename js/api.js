@@ -14,17 +14,17 @@ async function tmdbSearch(title) {
   } catch (e) { return null }
 }
 
-async function tmdbTrending() {
+async function tmdbTrending(page = 1) {
   try {
-    const r = await fetch(`https://api.themoviedb.org/3/trending/tv/week?api_key=${TMDB_KEY}&language=es-ES`);
+    const r = await fetch(`https://api.themoviedb.org/3/trending/tv/week?api_key=${TMDB_KEY}&language=es-ES&page=${page}`);
     const d = await r.json();
     return d.results || [];
   } catch (e) { return [] }
 }
 
-async function tmdbTopRated() {
+async function tmdbTopRated(page = 1) {
   try {
-    const r = await fetch(`https://api.themoviedb.org/3/tv/top_rated?api_key=${TMDB_KEY}&language=es-ES&page=1`);
+    const r = await fetch(`https://api.themoviedb.org/3/tv/top_rated?api_key=${TMDB_KEY}&language=es-ES&page=${page}`);
     const d = await r.json();
     return d.results || [];
   } catch (e) { return [] }
@@ -46,9 +46,9 @@ async function tmdbGenres() {
   } catch (e) { return [] }
 }
 
-async function tmdbDiscoverByGenre(genreId) {
+async function tmdbDiscoverByGenre(genreId, page = 1) {
   try {
-    const r = await fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${TMDB_KEY}&language=es-ES&sort_by=popularity.desc&with_genres=${genreId}`);
+    const r = await fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${TMDB_KEY}&language=es-ES&sort_by=popularity.desc&with_genres=${genreId}&page=${page}`);
     const d = await r.json();
     return d.results || [];
   } catch (e) { return [] }
