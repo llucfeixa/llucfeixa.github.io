@@ -1655,7 +1655,7 @@
           if (tmdbSt === 'Ended' || tmdbSt === 'Canceled') {
             return { newSeasons, newNextEp: null, newStatus: 'done', toastMsg: `✅ Serie completada` };
           }
-          let newNextEp = `T${nextSeaNum} (?)`;
+          let newNextEp = `T${nextSeaNum}`;
           if (ne && ne.air_date) newNextEp = `T${ne.season_number} (${fmtDate(ne.air_date)})`;
           return { newSeasons, newNextEp, newStatus: 'waiting', toastMsg: `⏳ T${newSeason} completada → esperando anuncios` };
         }
@@ -1676,7 +1676,7 @@
       const totalEps = curSeaTmdb ? curSeaTmdb.episode_count : null;
       const ne = detail.next_episode_to_air;
 
-      let atEnd = curEp === null || (totalEps !== null && curEp >= totalEps);
+      let atEnd = curEp === null;
       if (ne && ne.season_number === curSeason && ne.episode_number > (curEp || 0)) atEnd = false;
 
       if (!atEnd) return 'active'; // mid-season → watching
@@ -1709,7 +1709,7 @@
 
           const tmdbSeasons = (detail.seasons || []).filter(s => s.season_number > 0 && s.episode_count > 0);
           if (tmdbSeasons.some(s => s.season_number > curSeason) || (ne && ne.season_number > curSeason)) {
-            const nxt = ne && ne.air_date ? `T${ne.season_number} (${fmtDate(ne.air_date)})` : `T${curSeason + 1} (?)`;
+            const nxt = ne && ne.air_date ? `T${ne.season_number} (${fmtDate(ne.air_date)})` : `T${curSeason + 1}`;
             moveTo(show, 'waiting', nxt); return true;
           }
         }
@@ -1736,14 +1736,14 @@
         const tmdbSeasons = (detail.seasons || []).filter(s => s.season_number > 0 && s.episode_count > 0);
         const curSeaTmdb = tmdbSeasons.find(s => s.season_number === curSeason);
         const totalEps = curSeaTmdb ? curSeaTmdb.episode_count : null;
-        let atEnd = curEp === null || (totalEps !== null && curEp >= totalEps);
+        let atEnd = curEp === null;
         if (ne && ne.season_number === curSeason && ne.episode_number > (curEp || 0)) atEnd = false;
 
         if (atEnd) {
           const nextSeaTmdb = tmdbSeasons.find(s => s.season_number === curSeason + 1);
           if (!nextSeaTmdb) {
             if (tmdbSt === 'Ended' || tmdbSt === 'Canceled') { moveTo(show, 'done', null); return true; }
-            const nxt = ne && ne.air_date ? `T${ne.season_number} (${fmtDate(ne.air_date)})` : `T${curSeason + 1} (?)`;
+            const nxt = ne && ne.air_date ? `T${ne.season_number} (${fmtDate(ne.air_date)})` : `T${curSeason + 1}`;
             moveTo(show, 'waiting', nxt); return true;
           }
         }
@@ -2013,7 +2013,7 @@
       if (status === 'waiting' && editTmdbDetail) {
         const ne = editTmdbDetail.next_episode_to_air;
         if (ne && ne.air_date) nextEp = `T${ne.season_number} (${fmtDate(ne.air_date)})`;
-        else { const p = editSeasons.length ? parseEp(editSeasons[editSeasons.length - 1]) : null; nextEp = `T${p ? (p.s + 1) : 1} (?)`; }
+        else { const p = editSeasons.length ? parseEp(editSeasons[editSeasons.length - 1]) : null; nextEp = `T${p ? (p.s + 1) : 1}`; }
       }
       if (status === 'active') {
         if (editingId) {
