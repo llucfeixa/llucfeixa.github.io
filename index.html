@@ -40,11 +40,9 @@
   </div>
 
   <div class="header">
-    <button onclick="logout()" class="btn btn-ghost"
-      style="position:absolute; right: 2rem; top: 2.2rem; font-size: 0.8rem; padding: 0.4rem 0.8rem;">Cerrar
-      sesión</button>
+    <button id="logoutBtn" onclick="logout()" class="btn btn-ghost logout-btn">Cerrar sesión</button>
     <h1>🎬 Mi Cineteca</h1>
-    <p>Seguimiento personal · Actualizado automáticamente</p>
+    <p>Seguimiento personal</p>
   </div>
   <div class="nav-tabs">
     <button class="nav-tab active" id="mySeriesTab" onclick="switchView('my-series')">Mis Series</button>
@@ -57,8 +55,8 @@
           placeholder="Buscar serie..."></div>
       <button class="filter-btn active" data-filter="all">Todas</button>
       <button class="filter-btn" data-filter="active">En curso</button>
-      <button class="filter-btn" data-filter="waiting">Esperando</button>
       <button class="filter-btn" data-filter="pending">Por ver</button>
+      <button class="filter-btn" data-filter="waiting">Esperando</button>
       <button class="filter-btn" data-filter="done">Finalizadas</button>
       <button class="add-btn" id="addBtn">＋ Añadir</button>
       <div class="view-toggle">
@@ -135,12 +133,13 @@
             style="margin-left:auto;padding:0.35rem 0.8rem;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-size:0.76rem;font-family:'DM Sans',sans-serif;transition:all 0.18s"
             onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'"
             onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✏️ Editar</button>
-          <button id="modalAddBtn" class="btn btn-primary" style="margin-left:auto;display:none;padding:0.35rem 0.8rem;font-size:0.76rem">＋ Añadir a mi lista</button>
+          <button id="modalAddBtn" class="btn btn-primary"
+            style="margin-left:auto;display:none;padding:0.35rem 0.8rem;font-size:0.76rem">＋ Añadir a mi lista</button>
         </div>
         <p id="modalOverview" style="color:var(--muted);font-size:0.86rem;line-height:1.65;margin-bottom:0.9rem"></p>
-        
+
         <div id="modalTmdbNextEp" style="display:none"></div>
-        
+
         <div style="margin-bottom:0.7rem;margin-top:0.7rem">
           <p class="modal-section-label">Progreso</p>
           <div class="modal-seasons" id="modalSeasons"></div>
@@ -196,8 +195,8 @@
         <div class="form-group"><label class="form-label">Estado</label>
           <select class="form-select" id="editStatus">
             <option value="active">📺 En curso</option>
-            <option value="waiting">⏳ Esperando</option>
             <option value="pending">🎯 Por ver</option>
+            <option value="waiting">⏳ Esperando</option>
             <option value="done">✅ Finalizada</option>
           </select>
         </div>

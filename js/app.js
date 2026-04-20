@@ -394,8 +394,8 @@ function updateStats() {
   bar.innerHTML = `
 <div class="stat"><div class="stat-n">${getAllShows().length}</div><div class="stat-l">Total</div></div>
 <div class="stat"><div class="stat-n" style="color:var(--green)">${DB.active.length}</div><div class="stat-l">En curso</div></div>
-<div class="stat"><div class="stat-n" style="color:var(--blue)">${DB.waiting.length}</div><div class="stat-l">Esperando</div></div>
 <div class="stat"><div class="stat-n" style="color:var(--purple)">${DB.pending.length}</div><div class="stat-l">Por ver</div></div>
+<div class="stat"><div class="stat-n" style="color:var(--blue)">${DB.waiting.length}</div><div class="stat-l">Esperando</div></div>
 <div class="stat"><div class="stat-n" style="color:var(--gold)">${DB.done.length}</div><div class="stat-l">Finalizadas</div></div>
 <div class="stat"><div class="stat-n" style="color:var(--gold)">${hours}h</div><div class="stat-l">Visto</div></div>`;
 }

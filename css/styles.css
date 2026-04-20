@@ -1326,3 +1326,32 @@ h3 {
   margin-top: 0.4rem;
   display: none
 }
+.logout-btn {
+  position: absolute;
+  right: 2rem;
+  top: 2.2rem;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.8rem;
+  z-index: 10;
+}
+
+@media (max-width: 650px) {
+  .header {
+    padding: 4.5rem 1rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .logout-btn {
+    top: 1rem;
+    right: 1rem;
+    font-size: 0.75rem;
+    padding: 0.3rem 0.7rem;
+  }
+
+  .header h1 {
+    font-size: 1.8rem;
+    line-height: 1.2;
+  }
+}
