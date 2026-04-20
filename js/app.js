@@ -650,6 +650,7 @@ async function saveShow() {
         else nextEp = last;
       } else {
         nextEp = 'T1E1';
+        editSeasons = ['T1E1'];
       }
     }
   }
