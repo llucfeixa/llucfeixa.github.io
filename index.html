@@ -1615,7 +1615,7 @@
       const ne = detail ? detail.next_episode_to_air : null;
       const tmdbSt = detail ? detail.status : null;
 
-      let isSeasonFinished = (totalEps !== null && newEp >= totalEps);
+      let isSeasonFinished = (totalEps !== null && newEp > totalEps);
       if (ne && ne.season_number === newSeason && ne.episode_number > newEp) isSeasonFinished = false;
 
       if (!isSeasonFinished) {
