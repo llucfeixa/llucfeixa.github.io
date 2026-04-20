@@ -144,71 +144,105 @@ async function renderDiscover(append = false) {
   const trendingGrid = document.getElementById('discoverTrendingGrid');
   const topGrid = document.getElementById('discoverTopGrid');
   const genreDiv = document.getElementById('genreFilters');
-  if (!trendingGrid || !topGrid) return;
+  const defContent = document.getElementById('discoverDefaultContent');
+  const searchResults = document.getElementById('discoverSearchResults');
+  const searchGrid = document.getElementById('discoverSearchGrid');
+  const q = document.getElementById('discoverSearchInput').value.trim();
 
+  if (!trendingGrid || !topGrid || !genreDiv) return;
+
+  // 1. Ensure genres are loaded
   if (!genreCache) {
     genreCache = await tmdbGenres();
-    genreDiv.innerHTML = '<button class="genre-tag active" onclick="filterByGenre(null)">Todos</button>' +
+    genreDiv.innerHTML = '<button class="genre-tag active" id="genreAll" onclick="filterByGenre(null)">Todos</button>' +
       genreCache.map(g => `<button class="genre-tag" data-id="${g.id}" onclick="filterByGenre(${g.id})">${g.name}</button>`).join('');
   }
 
-  if (currentGenreId) {
-    document.getElementById('discoverDefaultContent').style.display = 'none';
-    document.getElementById('discoverSearchResults').style.display = 'block';
-    const grid = document.getElementById('discoverSearchGrid');
-    document.querySelector('#discoverSearchResults .section-title').textContent = 'Género: ' + (genreCache.find(g => g.id === currentGenreId).name);
+  // 2. Determine state: Search > Genre > Default
+  if (q) {
+    defContent.style.display = 'none';
+    searchResults.style.display = 'block';
+    document.querySelector('#discoverSearchResults .section-title').textContent = 'Resultados de búsqueda';
     
     if (!append) {
-      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Filtrando...</div>';
+      searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Buscando...</div>';
+      searchPage = 1;
+    }
+
+    const results = await tmdbMulti(q, searchPage);
+    if (!append) searchGrid.innerHTML = '';
+    if (!results.length && !append) {
+      searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No se encontraron series.</div>';
+    } else {
+      searchGrid.innerHTML += results.map(s => renderDiscoverCard(s)).join('');
+    }
+    
+    updateLoadMoreBtn(searchGrid, 'loadMoreSearch', results.length >= 20, () => { searchPage++; renderDiscover(true); });
+    return;
+  }
+
+  if (currentGenreId) {
+    defContent.style.display = 'none';
+    searchResults.style.display = 'block';
+    const genreName = genreCache.find(g => g.id === currentGenreId)?.name || 'Género';
+    document.querySelector('#discoverSearchResults .section-title').textContent = 'Género: ' + genreName;
+    
+    if (!append) {
+      searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Filtrando...</div>';
       genrePage = 1;
     }
     
     const res = await tmdbDiscoverByGenre(currentGenreId, genrePage);
-    if (!append) grid.innerHTML = '';
-    grid.innerHTML += res.map(s => renderDiscoverCard(s)).join('');
+    if (!append) searchGrid.innerHTML = '';
+    searchGrid.innerHTML += res.map(s => renderDiscoverCard(s)).join('');
     
-    if (res.length >= 20) {
-      if (!document.getElementById('loadMoreGenre')) {
-        const btn = document.createElement('button');
-        btn.id = 'loadMoreGenre'; btn.className = 'btn btn-ghost'; btn.style = 'margin:1rem auto;display:block';
-        btn.textContent = 'Cargar más'; btn.onclick = () => { genrePage++; renderDiscover(true); };
-        grid.after(btn);
-      }
-    } else if (document.getElementById('loadMoreGenre')) document.getElementById('loadMoreGenre').remove();
+    updateLoadMoreBtn(searchGrid, 'loadMoreGenre', res.length >= 20, () => { genrePage++; renderDiscover(true); });
     return;
   }
-  
+
+  // 3. Default state (Trending & Top Rated)
+  defContent.style.display = 'block';
+  searchResults.style.display = 'none';
+
   // Trending
   if (!trendingCache.length) {
-    trendingGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Cargando tendencias...</div>';
+    trendingGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div></div>';
     trendingCache = await tmdbTrending(1);
+    trendingPage = 1;
   } else if (append && trendingPage > 1) {
     const res = await tmdbTrending(trendingPage);
     trendingCache = [...trendingCache, ...res];
   }
   trendingGrid.innerHTML = trendingCache.map(s => renderDiscoverCard(s)).join('');
-  if (trendingCache.length >= 20 && !document.getElementById('loadMoreTrending')) {
-    const btn = document.createElement('button');
-    btn.id = 'loadMoreTrending'; btn.className = 'btn btn-ghost'; btn.style = 'margin:1rem auto;display:block';
-    btn.textContent = 'Cargar más'; btn.onclick = () => { trendingPage++; renderDiscover(true); };
-    trendingGrid.after(btn);
-  }
+  updateLoadMoreBtn(trendingGrid, 'loadMoreTrending', true, () => { trendingPage++; renderDiscover(true); });
   
   // Top Rated
   if (!topRatedCache.length) {
-    topGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Cargando mejor valoradas...</div>';
+    topGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div></div>';
     topRatedCache = await tmdbTopRated(1);
+    topRatedPage = 1;
   } else if (append && topRatedPage > 1) {
     const res = await tmdbTopRated(topRatedPage);
     topRatedCache = [...topRatedCache, ...res];
   }
   topGrid.innerHTML = topRatedCache.map(s => renderDiscoverCard(s)).join('');
-  if (topRatedCache.length >= 20 && !document.getElementById('loadMoreTop')) {
-    const btn = document.createElement('button');
-    btn.id = 'loadMoreTop'; btn.className = 'btn btn-ghost'; btn.style = 'margin:1rem auto;display:block';
-    btn.textContent = 'Cargar más'; btn.onclick = () => { topRatedPage++; renderDiscover(true); };
-    topGrid.after(btn);
+  updateLoadMoreBtn(topGrid, 'loadMoreTop', true, () => { topRatedPage++; renderDiscover(true); });
+}
+
+function updateLoadMoreBtn(container, id, show, onClick) {
+  let btn = document.getElementById(id);
+  if (!show) { if (btn) btn.remove(); return; }
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.id = id; btn.className = 'btn btn-ghost'; btn.style = 'margin:1.5rem auto;display:block';
+    btn.textContent = 'Cargar más';
+    container.after(btn);
   }
+  btn.onclick = (e) => {
+    e.target.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px"></div>';
+    onClick();
+  };
+  btn.innerHTML = 'Cargar más';
 }
 
 function renderDiscoverCard(s) {
@@ -233,48 +267,14 @@ function renderDiscoverCard(s) {
   </div>`;
 }
 
-async function handleDiscoverSearch(append = false) {
+async function handleDiscoverSearch() {
   const q = document.getElementById('discoverSearchInput').value.trim();
-  const defContent = document.getElementById('discoverDefaultContent');
-  const searchResults = document.getElementById('discoverSearchResults');
-  const searchGrid = document.getElementById('discoverSearchGrid');
-
-  if (!q) {
-    defContent.style.display = 'block';
-    searchResults.style.display = 'none';
-    searchPage = 1;
-    return;
-  }
-
-  defContent.style.display = 'none';
-  searchResults.style.display = 'block';
-  document.querySelector('#discoverSearchResults .section-title').textContent = 'Resultados de búsqueda';
+  if (q) currentGenreId = null; // Clear genre if searching
   
-  if (!append) {
-    searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Buscando en TMDB...</div>';
-    searchPage = 1;
-  }
-
   clearTimeout(discoverTimer);
-  discoverTimer = setTimeout(async () => {
-    const results = await tmdbMulti(q, searchPage);
-    if (!append) searchGrid.innerHTML = '';
-    
-    if (!results.length && !append) {
-      searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No se encontraron series para "' + q + '"</div>';
-      return;
-    }
-    searchGrid.innerHTML += results.map(s => renderDiscoverCard(s)).join('');
-    
-    if (results.length >= 20) {
-      if (!document.getElementById('loadMoreSearch')) {
-        const btn = document.createElement('button');
-        btn.id = 'loadMoreSearch'; btn.className = 'btn btn-ghost'; btn.style = 'margin:1rem auto;display:block';
-        btn.textContent = 'Cargar más'; btn.onclick = () => { searchPage++; handleDiscoverSearch(true); };
-        searchGrid.after(btn);
-      }
-    } else if (document.getElementById('loadMoreSearch')) document.getElementById('loadMoreSearch').remove();
-  }, append ? 0 : 450);
+  discoverTimer = setTimeout(() => {
+    renderDiscover();
+  }, 450);
 }
 
 async function discoverAdd(tmdbId, name, poster, date, backdrop) {
@@ -284,18 +284,14 @@ async function discoverAdd(tmdbId, name, poster, date, backdrop) {
 
 function filterByGenre(id) {
   currentGenreId = id;
+  if (id) document.getElementById('discoverSearchInput').value = ''; // Clear search if filtering by genre
+  
   document.querySelectorAll('.genre-tag').forEach(b => {
-    if (id === null && b.textContent === 'Todos') b.classList.add('active');
+    if (id === null && b.id === 'genreAll') b.classList.add('active');
     else if (b.dataset.id == id) b.classList.add('active');
     else b.classList.remove('active');
   });
-  if (!id) {
-    document.getElementById('discoverDefaultContent').style.display = 'block';
-    document.getElementById('discoverSearchResults').style.display = 'none';
-    renderDiscover();
-  } else {
-    renderDiscover();
-  }
+  renderDiscover();
 }
 
 async function renderCalendar() {
