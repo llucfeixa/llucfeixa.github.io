@@ -160,6 +160,9 @@ async function renderDiscover(append = false) {
     searchResults.style.display = 'block';
     document.querySelector('#discoverSearchResults .section-title').textContent = 'Resultados de búsqueda';
     
+    // Cleanup other buttons
+    ['loadMoreTrending', 'loadMoreTop', 'loadMoreGenre'].forEach(id => { const b = document.getElementById(id); if (b) b.remove(); });
+
     if (!append) {
       searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Buscando...</div>';
       searchPage = 1;
@@ -171,19 +174,15 @@ async function renderDiscover(append = false) {
     if (!results.length && !append) {
       searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No se encontraron series.</div>';
       searchHasMore = false;
+    } else if (!results.length && append) {
+      searchHasMore = false;
     } else {
-      // Avoid adding same results if append was called accidentally
       const currentIds = new Set([...searchGrid.querySelectorAll('.card-poster')].map(el => {
         const attr = el.getAttribute('onclick');
         const match = attr.match(/'(\d+)'/);
         return match ? match[1] : null;
       }));
-      
-      const newHtml = results
-        .filter(s => !currentIds.has(String(s.id)))
-        .map(s => renderDiscoverCard(s))
-        .join('');
-      
+      const newHtml = results.filter(s => !currentIds.has(String(s.id))).map(s => renderDiscoverCard(s)).join('');
       searchGrid.innerHTML += newHtml;
       searchHasMore = results.length >= 20;
     }
@@ -198,6 +197,9 @@ async function renderDiscover(append = false) {
     const genreName = genreCache.find(g => g.id === currentGenreId)?.name || 'Género';
     document.querySelector('#discoverSearchResults .section-title').textContent = 'Género: ' + genreName;
     
+    // Cleanup other buttons
+    ['loadMoreTrending', 'loadMoreTop', 'loadMoreSearch'].forEach(id => { const b = document.getElementById(id); if (b) b.remove(); });
+
     if (!append) {
       searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Filtrando...</div>';
       genrePage = 1; genreHasMore = true;
@@ -205,8 +207,12 @@ async function renderDiscover(append = false) {
     
     const res = await tmdbDiscoverByGenre(currentGenreId, genrePage);
     if (!append) searchGrid.innerHTML = '';
-    searchGrid.innerHTML += res.map(s => renderDiscoverCard(s)).join('');
-    genreHasMore = res.length >= 20;
+    if (res.length) {
+      searchGrid.innerHTML += res.map(s => renderDiscoverCard(s)).join('');
+      genreHasMore = res.length >= 20;
+    } else {
+      genreHasMore = false;
+    }
     
     updateLoadMoreBtn(searchGrid, 'loadMoreGenre', genreHasMore, () => { genrePage++; renderDiscover(true); });
     return;
@@ -215,6 +221,8 @@ async function renderDiscover(append = false) {
   // 3. Default state (Trending & Top Rated)
   defContent.style.display = 'block';
   searchResults.style.display = 'none';
+  if (document.getElementById('loadMoreGenre')) document.getElementById('loadMoreGenre').remove();
+  if (document.getElementById('loadMoreSearch')) document.getElementById('loadMoreSearch').remove();
 
   // Trending
   if (!trendingCache.length) {
@@ -223,8 +231,10 @@ async function renderDiscover(append = false) {
     trendingCache = res; trendingPage = 1; trendingHasMore = res.length >= 20;
   } else if (append && trendingHasMore) {
     const res = await tmdbTrending(trendingPage);
-    trendingCache = [...trendingCache, ...res];
-    trendingHasMore = res.length >= 20;
+    if (res.length) {
+      trendingCache = [...trendingCache, ...res];
+      trendingHasMore = res.length >= 20;
+    } else trendingHasMore = false;
   }
   trendingGrid.innerHTML = trendingCache.map(s => renderDiscoverCard(s)).join('');
   updateLoadMoreBtn(trendingGrid, 'loadMoreTrending', trendingHasMore, () => { trendingPage++; renderDiscover(true); });
@@ -236,8 +246,10 @@ async function renderDiscover(append = false) {
     topRatedCache = res; topRatedPage = 1; topRatedHasMore = res.length >= 20;
   } else if (append && topRatedHasMore) {
     const res = await tmdbTopRated(topRatedPage);
-    topRatedCache = [...topRatedCache, ...res];
-    topRatedHasMore = res.length >= 20;
+    if (res.length) {
+      topRatedCache = [...topRatedCache, ...res];
+      topRatedHasMore = res.length >= 20;
+    } else topRatedHasMore = false;
   }
   topGrid.innerHTML = topRatedCache.map(s => renderDiscoverCard(s)).join('');
   updateLoadMoreBtn(topGrid, 'loadMoreTop', topRatedHasMore, () => { topRatedPage++; renderDiscover(true); });
@@ -246,14 +258,15 @@ async function renderDiscover(append = false) {
 function updateLoadMoreBtn(container, id, show, onClick) {
   let btn = document.getElementById(id);
   if (!show) { if (btn) btn.remove(); return; }
+  
   if (!btn) {
     btn = document.createElement('button');
     btn.id = id; btn.className = 'btn btn-ghost'; btn.style = 'margin:1.5rem auto;display:block';
-    btn.textContent = 'Cargar más';
     container.after(btn);
   }
+  
   btn.onclick = (e) => {
-    e.target.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px"></div>';
+    btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;margin:0"></div>';
     onClick();
   };
   btn.innerHTML = 'Cargar más';
