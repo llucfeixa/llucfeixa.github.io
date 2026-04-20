@@ -4,7 +4,7 @@ let tmdbCache = {}, tmdbDetailCache = {};
 let currentFilter = 'all', isGridView = true, currentView = 'my-series';
 let editingId = null, editSeasons = [], editTmdbDetail = null, trendingCache = [], topRatedCache = [], genreCache = null;
 let tmdbTimer = null, discoverTimer = null, openModalId = null, currentGenreId = null;
-let trendingPage = 1, topRatedPage = 1, genrePage = 1;
+let trendingPage = 1, topRatedPage = 1, genrePage = 1, searchPage = 1;
 
 function getAllShows() { return [...DB.active, ...DB.waiting, ...DB.pending, ...DB.done] }
 function findShow(id) { return getAllShows().find(s => s.id === id) }
@@ -157,11 +157,15 @@ async function renderDiscover(append = false) {
     document.getElementById('discoverSearchResults').style.display = 'block';
     const grid = document.getElementById('discoverSearchGrid');
     document.querySelector('#discoverSearchResults .section-title').textContent = 'Género: ' + (genreCache.find(g => g.id === currentGenreId).name);
-    if (!append) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Filtrando...</div>';
+    
+    if (!append) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Filtrando...</div>';
+      genrePage = 1;
+    }
     
     const res = await tmdbDiscoverByGenre(currentGenreId, genrePage);
-    if (append) grid.innerHTML += res.map(s => renderDiscoverCard(s)).join('');
-    else grid.innerHTML = res.map(s => renderDiscoverCard(s)).join('');
+    if (!append) grid.innerHTML = '';
+    grid.innerHTML += res.map(s => renderDiscoverCard(s)).join('');
     
     if (res.length >= 20) {
       if (!document.getElementById('loadMoreGenre')) {
@@ -174,36 +178,36 @@ async function renderDiscover(append = false) {
     return;
   }
   
-  if (!trendingCache.length || (append && trendingPage > 1)) {
-    if (!append) trendingGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Cargando tendencias...</div>';
+  // Trending
+  if (!trendingCache.length) {
+    trendingGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Cargando tendencias...</div>';
+    trendingCache = await tmdbTrending(1);
+  } else if (append && trendingPage > 1) {
     const res = await tmdbTrending(trendingPage);
-    trendingCache = append ? [...trendingCache, ...res] : res;
-    trendingGrid.innerHTML = trendingCache.map(s => renderDiscoverCard(s)).join('');
-    
-    if (res.length >= 20) {
-      if (!document.getElementById('loadMoreTrending')) {
-        const btn = document.createElement('button');
-        btn.id = 'loadMoreTrending'; btn.className = 'btn btn-ghost'; btn.style = 'margin:1rem auto;display:block';
-        btn.textContent = 'Cargar más'; btn.onclick = () => { trendingPage++; renderDiscover(true); };
-        trendingGrid.after(btn);
-      }
-    }
+    trendingCache = [...trendingCache, ...res];
+  }
+  trendingGrid.innerHTML = trendingCache.map(s => renderDiscoverCard(s)).join('');
+  if (trendingCache.length >= 20 && !document.getElementById('loadMoreTrending')) {
+    const btn = document.createElement('button');
+    btn.id = 'loadMoreTrending'; btn.className = 'btn btn-ghost'; btn.style = 'margin:1rem auto;display:block';
+    btn.textContent = 'Cargar más'; btn.onclick = () => { trendingPage++; renderDiscover(true); };
+    trendingGrid.after(btn);
   }
   
-  if (!topRatedCache.length || (append && topRatedPage > 1)) {
-    if (!append) topGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Cargando mejor valoradas...</div>';
+  // Top Rated
+  if (!topRatedCache.length) {
+    topGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Cargando mejor valoradas...</div>';
+    topRatedCache = await tmdbTopRated(1);
+  } else if (append && topRatedPage > 1) {
     const res = await tmdbTopRated(topRatedPage);
-    topRatedCache = append ? [...topRatedCache, ...res] : res;
-    topGrid.innerHTML = topRatedCache.map(s => renderDiscoverCard(s)).join('');
-
-    if (res.length >= 20) {
-      if (!document.getElementById('loadMoreTop')) {
-        const btn = document.createElement('button');
-        btn.id = 'loadMoreTop'; btn.className = 'btn btn-ghost'; btn.style = 'margin:1rem auto;display:block';
-        btn.textContent = 'Cargar más'; btn.onclick = () => { topRatedPage++; renderDiscover(true); };
-        topGrid.after(btn);
-      }
-    }
+    topRatedCache = [...topRatedCache, ...res];
+  }
+  topGrid.innerHTML = topRatedCache.map(s => renderDiscoverCard(s)).join('');
+  if (topRatedCache.length >= 20 && !document.getElementById('loadMoreTop')) {
+    const btn = document.createElement('button');
+    btn.id = 'loadMoreTop'; btn.className = 'btn btn-ghost'; btn.style = 'margin:1rem auto;display:block';
+    btn.textContent = 'Cargar más'; btn.onclick = () => { topRatedPage++; renderDiscover(true); };
+    topGrid.after(btn);
   }
 }
 
@@ -229,7 +233,7 @@ function renderDiscoverCard(s) {
   </div>`;
 }
 
-async function handleDiscoverSearch() {
+async function handleDiscoverSearch(append = false) {
   const q = document.getElementById('discoverSearchInput').value.trim();
   const defContent = document.getElementById('discoverDefaultContent');
   const searchResults = document.getElementById('discoverSearchResults');
@@ -238,22 +242,39 @@ async function handleDiscoverSearch() {
   if (!q) {
     defContent.style.display = 'block';
     searchResults.style.display = 'none';
+    searchPage = 1;
     return;
   }
 
   defContent.style.display = 'none';
   searchResults.style.display = 'block';
-  searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Buscando en TMDB...</div>';
+  document.querySelector('#discoverSearchResults .section-title').textContent = 'Resultados de búsqueda';
+  
+  if (!append) {
+    searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Buscando en TMDB...</div>';
+    searchPage = 1;
+  }
 
   clearTimeout(discoverTimer);
   discoverTimer = setTimeout(async () => {
-    const results = await tmdbMulti(q); // Reuse existing tmdbMulti which searches TV
-    if (!results.length) {
+    const results = await tmdbMulti(q, searchPage);
+    if (!append) searchGrid.innerHTML = '';
+    
+    if (!results.length && !append) {
       searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No se encontraron series para "' + q + '"</div>';
       return;
     }
-    searchGrid.innerHTML = results.map(s => renderDiscoverCard(s)).join('');
-  }, 450);
+    searchGrid.innerHTML += results.map(s => renderDiscoverCard(s)).join('');
+    
+    if (results.length >= 20) {
+      if (!document.getElementById('loadMoreSearch')) {
+        const btn = document.createElement('button');
+        btn.id = 'loadMoreSearch'; btn.className = 'btn btn-ghost'; btn.style = 'margin:1rem auto;display:block';
+        btn.textContent = 'Cargar más'; btn.onclick = () => { searchPage++; handleDiscoverSearch(true); };
+        searchGrid.after(btn);
+      }
+    } else if (document.getElementById('loadMoreSearch')) document.getElementById('loadMoreSearch').remove();
+  }, append ? 0 : 450);
 }
 
 async function discoverAdd(tmdbId, name, poster, date, backdrop) {
@@ -456,7 +477,7 @@ async function openModal(id, isTmdbId = false) {
       if (similar.length) {
         document.getElementById('modalSimilarWrap').style.display = 'block';
         document.getElementById('modalSimilar').innerHTML = similar.slice(0, 4).map(s => `
-          <div class="card" style="font-size:0.7rem" onclick="closeModal(); discoverAdd(${s.id}, '${s.name.replace(/'/g, "\\'")}', '${s.poster_path}', '${s.first_air_date ? s.first_air_date.slice(0, 4) : ''}', '${s.backdrop_path}')">
+          <div class="card" style="font-size:0.7rem;cursor:pointer" onclick="openModal('${s.id}', true)">
             <img src="${IMG}${s.poster_path}" style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:6px">
             <div style="padding:0.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
           </div>`).join('');

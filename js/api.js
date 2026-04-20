@@ -70,9 +70,9 @@ async function tmdbCredits(id) {
   } catch (e) { return [] }
 }
 
-async function tmdbMulti(q) {
+async function tmdbMulti(q, page = 1) {
   try {
-    const r = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}&language=es-ES`);
+    const r = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}&language=es-ES&page=${page}`);
     const d = await r.json();
     return d.results || [];
   } catch (e) { return [] }
