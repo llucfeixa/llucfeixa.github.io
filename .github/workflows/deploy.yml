@@ -26,8 +26,8 @@ jobs:
 
       - name: Inject Secrets
         run: |
-          # Inject TMDB Key into app.js
-          sed -i "s|__TMDB_KEY__|${{ secrets.TMDB_KEY }}|g" js/app.js
+          # Inject TMDB Key into api.js
+          sed -i "s|__TMDB_KEY__|${{ secrets.TMDB_KEY }}|g" js/api.js
           
           # Inject Firebase config into firebase-config.js
           sed -i "s|__FIREBASE_API_KEY__|${{ secrets.FIREBASE_API_KEY }}|g" js/firebase-config.js
