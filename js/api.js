@@ -35,18 +35,6 @@ async function getShowDetail(show) {
 
 function tmdbRating(d) { if (!d) return null; const v = d.vote_average; if (!v || v === 0) return null; return parseFloat(v.toFixed(1)) }
 
-// ── OPEN PROVIDER HELPER ─────────────────────────
-function openProvider(appUrl, webUrl) {
-  let didBlur = false;
-  window.addEventListener('blur', () => { didBlur = true; }, { once: true });
-  window.location.href = appUrl;
-  setTimeout(() => {
-    if (!didBlur) {
-      window.open(webUrl, '_blank');
-    }
-  }, 2500);
-}
-
 // ── UI COMPONENTS FROM API DATA ───────────────────
 function buildPlatformBadge(detail) {
   if (!detail) return '';
@@ -70,34 +58,14 @@ function buildPlatformBadge(detail) {
   if (!uniqueProviders.length) return '';
 
   const allowedProviders = {
-    'Netflix': {
-      web: 'https://www.netflix.com/',
-      app: 'nflx://'
-    },
-    'Max': {
-      web: 'https://www.max.com/',
-      app: 'max://'
-    },
-    'HBO Max': {
-      web: 'https://play.hbomax.com/',
-      app: 'hbomax://'
-    },
-    'Disney Plus': {
-      web: 'https://www.disneyplus.com/es-es/',
-      app: 'disneyplus://'
-    },
-    'Disney+': {
-      web: 'https://www.disneyplus.com/es-es/',
-      app: 'disneyplus://'
-    },
-    'Amazon Prime Video': {
-      web: 'https://www.primevideo.com/',
-      app: 'primevideo://'
-    },
-    'Movistar Plus+': {
-      web: 'https://ver.movistarplus.es/',
-      app: 'movistarplus://'
-    }
+    'Netflix': `https://www.netflix.com/`,
+    'Max': `https://www.max.com/`,
+    'HBO Max': `https://play.hbomax.com/`,
+    'Disney Plus': `https://www.disneyplus.com/es-es/`,
+    'Disney+': `https://www.disneyplus.com/es-es/`,
+    'Amazon Prime Video': `https://www.primevideo.com/`,
+    'Movistar Plus+': `https://ver.movistarplus.es/`,
+    'Movistar+': `https://ver.movistarplus.es/`
   };
 
   const filteredProviders = uniqueProviders.filter(p => allowedProviders.hasOwnProperty(p.provider_name));
@@ -106,15 +74,11 @@ function buildPlatformBadge(detail) {
   const badges = filteredProviders.map(prov => {
     const logoUrl = `${LOGO_BASE}${prov.logo_path}`;
     const name = prov.provider_name;
-    const config = allowedProviders[name];
-    const appUrl = config.app;
-    const webUrl = config.web;
-
-    return `<a class="platform-badge" href="${webUrl}" title="Abrir ${name}"
-      onclick="event.preventDefault(); openProvider('${appUrl}', '${webUrl}')">
-      <img src="${logoUrl}" alt="${name}">
-      <span>${name}</span>
-    </a>`;
+    const url = allowedProviders[name];
+    return `<a class="platform-badge" href="${url}" target="_blank" rel="noopener" title="Abrir ${name}">
+<img src="${logoUrl}" alt="${name}">
+<span>${name}</span>
+</a>`;
   });
 
   return `<div style="display:flex;gap:0.6rem;flex-wrap:wrap;justify-content:center">${badges.join('')}</div>`;
