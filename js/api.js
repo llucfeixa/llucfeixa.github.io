@@ -30,6 +30,46 @@ async function tmdbTopRated() {
   } catch (e) { return [] }
 }
 
+async function tmdbSimilar(id) {
+  try {
+    const r = await fetch(`https://api.themoviedb.org/3/tv/${id}/recommendations?api_key=${TMDB_KEY}&language=es-ES`);
+    const d = await r.json();
+    return (d.results || []).slice(0, 10);
+  } catch (e) { return [] }
+}
+
+async function tmdbGenres() {
+  try {
+    const r = await fetch(`https://api.themoviedb.org/3/genre/tv/list?api_key=${TMDB_KEY}&language=es-ES`);
+    const d = await r.json();
+    return d.genres || [];
+  } catch (e) { return [] }
+}
+
+async function tmdbDiscoverByGenre(genreId) {
+  try {
+    const r = await fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${TMDB_KEY}&language=es-ES&sort_by=popularity.desc&with_genres=${genreId}`);
+    const d = await r.json();
+    return d.results || [];
+  } catch (e) { return [] }
+}
+
+async function tmdbVideos(id) {
+  try {
+    const r = await fetch(`https://api.themoviedb.org/3/tv/${id}/videos?api_key=${TMDB_KEY}&language=es-ES`);
+    const d = await r.json();
+    return d.results || [];
+  } catch (e) { return [] }
+}
+
+async function tmdbCredits(id) {
+  try {
+    const r = await fetch(`https://api.themoviedb.org/3/tv/${id}/credits?api_key=${TMDB_KEY}&language=es-ES`);
+    const d = await r.json();
+    return d.cast || [];
+  } catch (e) { return [] }
+}
+
 async function tmdbMulti(q) {
   try {
     const r = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}&language=es-ES`);

@@ -49,6 +49,7 @@
   <div class="nav-tabs">
     <button class="nav-tab active" id="mySeriesTab" onclick="switchView('my-series')">Mis Series</button>
     <button class="nav-tab" id="discoverTab" onclick="switchView('discover')">Descubrir</button>
+    <button class="nav-tab" id="calendarTab" onclick="switchView('calendar')">Calendario</button>
   </div>
   <div id="mySeriesView">
     <div class="stats-bar" id="statsBar"></div>
@@ -75,6 +76,9 @@
         <span class="search-icon">🔍</span>
         <input type="text" id="discoverSearchInput" placeholder="Buscar cualquier serie en TMDB...">
       </div>
+    </div>
+    <div id="genreFilters" class="genre-filters">
+      <!-- Genres will be injected here -->
     </div>
     <div class="sections" id="discoverSections">
       <!-- Search results will appear here if searching -->
@@ -109,6 +113,21 @@
     </div>
   </div>
 
+  <div id="calendarView" style="display:none">
+    <div class="sections">
+      <div class="section">
+        <div class="section-header">
+          <div class="section-dot" style="background:var(--blue)"></div>
+          <div class="section-title" style="color:var(--blue)">Estrenos de la semana</div>
+          <div class="section-line"></div>
+        </div>
+        <div id="calendarGrid" class="grid">
+          <!-- Calendar items will go here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- DETAIL MODAL -->
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal">
@@ -118,6 +137,7 @@
         <div class="modal-hero-content">
           <div id="modalBadge"></div>
           <h2 id="modalTitle"></h2>
+          <div id="modalTrailerBtnWrap" style="margin-top:0.5rem"></div>
         </div>
       </div>
       <div class="modal-body">
@@ -130,13 +150,14 @@
             onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✏️ Editar</button>
         </div>
         <p id="modalOverview" style="color:var(--muted);font-size:0.86rem;line-height:1.65;margin-bottom:0.9rem"></p>
+        
         <div id="modalTmdbNextEp" style="display:none"></div>
+        
         <div style="margin-bottom:0.7rem;margin-top:0.7rem">
-          <p
-            style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted);margin-bottom:0.45rem">
-            Progreso</p>
+          <p class="modal-section-label">Progreso</p>
           <div class="modal-seasons" id="modalSeasons"></div>
         </div>
+
         <div id="modalNextEpBlock" style="display:none">
           <div class="next-ep-block">
             <div>
@@ -146,6 +167,19 @@
             <button class="advance-btn" id="advanceBtn">▶ Ya lo vi</button>
           </div>
         </div>
+
+        <div id="modalPlatforms" style="margin-top:1.2rem"></div>
+
+        <div id="modalCastWrap" style="margin-top:1.5rem;display:none">
+          <p class="modal-section-label">Reparto Principal</p>
+          <div id="modalCast" class="cast-list"></div>
+        </div>
+
+        <div id="modalSimilarWrap" style="margin-top:1.5rem;display:none">
+          <p class="modal-section-label">Si te gusta esta serie...</p>
+          <div id="modalSimilar" class="similar-grid"></div>
+        </div>
+
         <div id="modalLinkWrap" style="margin-top:1.2rem;display:flex;justify-content:center;"></div>
       </div>
     </div>
