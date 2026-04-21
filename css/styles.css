@@ -242,7 +242,10 @@ h3 {
   padding: 1.2rem 2rem;
   display: flex;
   flex-direction: column;
-  gap: 2.2rem
+  gap: 2.2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .section-header {
@@ -289,7 +292,8 @@ h3 {
 
 .list-view .grid {
   grid-template-columns: 1fr;
-  gap: 0.38rem
+  gap: 0.38rem;
+  width: 100%;
 }
 
 .card {
@@ -512,7 +516,10 @@ h3 {
   border-radius: 8px;
   background: var(--surface);
   border: 1px solid var(--border);
-  transition: all 0.18s
+  transition: all 0.18s;
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
 }
 
 .list-card:hover {
@@ -565,7 +572,8 @@ h3 {
   flex-direction: column;
   align-items: flex-end;
   gap: 3px;
-  flex-shrink: 0
+  flex-shrink: 0;
+  width: 140px;
 }
 
 .list-actions {
