@@ -4,6 +4,12 @@
   box-sizing: border-box
 }
 
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+  position: relative;
+}
+
 :root {
   --bg: #0a0a0f;
   --surface: #12121a;
@@ -249,6 +255,12 @@ h3 {
   box-sizing: border-box;
 }
 
+@media (max-width: 600px) {
+  .sections {
+    padding: 1.2rem 0.8rem;
+  }
+}
+
 .section-header {
   display: flex;
   align-items: center;
@@ -267,7 +279,11 @@ h3 {
   font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.05em;
-  text-transform: uppercase
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .section-count {
@@ -292,9 +308,10 @@ h3 {
 }
 
 .list-view .grid {
-  grid-template-columns: 1fr;
-  gap: 0.38rem;
-  width: 100%;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.4rem !important;
+  width: 100% !important;
 }
 
 .card {
@@ -521,6 +538,7 @@ h3 {
   width: 100%;
   max-width: 1000px;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .list-card:hover {
@@ -578,9 +596,6 @@ h3 {
 }
 
 @media (max-width: 600px) {
-  .sections {
-    padding: 1rem 0.8rem;
-  }
   .list-card {
     gap: 0.6rem;
   }
