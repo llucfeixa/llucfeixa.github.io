@@ -1395,3 +1395,18 @@ h3 {
     line-height: 1.2;
   }
 }
+
+@media (max-width: 480px) {
+  .hide-mobile {
+    display: none;
+  }
+  .modal-body {
+    padding: 0.9rem;
+  }
+  .modal-hero-content h2 {
+    font-size: 1.25rem;
+  }
+  .modal-hero {
+    height: 180px;
+  }
+}
