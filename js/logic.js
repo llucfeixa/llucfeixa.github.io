@@ -62,7 +62,8 @@ async function computeAdvance(show, detail) {
       }
     } else {
       if (tmdbSt === 'Ended' || tmdbSt === 'Canceled') {
-        return { newSeasons, newNextEp: null, newStatus: 'done', toastMsg: `✅ Serie completada` };
+        const allSeasons = tmdbSeasons.map(s => `T${s.season_number}`);
+        return { newSeasons: allSeasons, newNextEp: null, newStatus: 'done', toastMsg: `✅ Serie completada` };
       }
       let newNextEp = `T${nextSeaNum}`;
       if (ne && ne.air_date) newNextEp = `T${ne.season_number} (${fmtDate(ne.air_date)})`;
@@ -119,6 +120,8 @@ async function autoCorrectStatus(show, detail) {
 
   if (show.status === 'waiting') {
     if (tmdbSt === 'Ended' || tmdbSt === 'Canceled') {
+      const tmdbSeasons = (detail.seasons || []).filter(s => s.season_number > 0 && s.episode_count > 0);
+      show.seasons = tmdbSeasons.map(s => `T${s.season_number}`);
       moveTo(show, 'done', null); return true;
     }
     if (ne && ne.air_date) {
@@ -143,7 +146,10 @@ async function autoCorrectStatus(show, detail) {
     if (atEnd) {
       const nextSeaTmdb = tmdbSeasons.find(s => s.season_number === curSeason + 1);
       if (!nextSeaTmdb) {
-        if (tmdbSt === 'Ended' || tmdbSt === 'Canceled') { moveTo(show, 'done', null); return true; }
+        if (tmdbSt === 'Ended' || tmdbSt === 'Canceled') { 
+          show.seasons = tmdbSeasons.map(s => `T${s.season_number}`);
+          moveTo(show, 'done', null); return true; 
+        }
         const nxt = ne && ne.air_date ? `T${ne.season_number} (${fmtDate(ne.air_date)})` : `T${curSeason + 1}`;
         moveTo(show, 'waiting', nxt); return true;
       }

@@ -63,6 +63,7 @@ function createCard(show) {
   </div>
 </div>`;
   }
+  const progress = calculateProgress(show);
   return `<div class="card${show._autoMoved ? ' auto-moved' : ''}">
 <div class="card-poster" onclick="openModal('${id}')">
   ${poster ? `<img src="${poster}" alt="${show.title}" loading="lazy">` : `<div class="card-poster-placeholder"><span>📺</span><p>${show.title}</p></div>`}
@@ -76,9 +77,40 @@ function createCard(show) {
 <div class="card-body" onclick="openModal('${id}')">
   <div class="card-title">${show.title}</div>
   <div class="card-meta"><span class="card-ep">${show.nextEp || last || 'Sin empezar'}</span><div class="card-status-dot" style="background:${cfg.dot}"></div></div>
-  ${show.seasons && show.seasons.length ? `<div class="card-progress-bar"><div class="card-progress-bar-fill" style="width:${Math.min(95, (show.seasons.length / (show.seasons.length + 1)) * 100)}%;background:var(--gold)"></div></div>` : ''}
+  ${show.seasons && show.seasons.length ? `<div class="card-progress-bar"><div class="card-progress-bar-fill" style="width:${progress}%;background:var(--gold)"></div></div>` : ''}
 </div>
 </div>`;
+}
+
+function calculateProgress(show) {
+  if (show.status === 'done') return 100;
+  if (!show.seasons || !show.seasons.length) return 0;
+  if (!show.tmdb || !show.tmdb.number_of_episodes) {
+    // Fallback if no episode count: use seasons (rough)
+    const totalSeasons = show.tmdb && show.tmdb.number_of_seasons ? show.tmdb.number_of_seasons : show.seasons.length + 1;
+    return Math.min(95, (show.seasons.length / totalSeasons) * 100);
+  }
+
+  const totalEps = show.tmdb.number_of_episodes;
+  let watchedEps = 0;
+  
+  // Estimate watched episodes
+  show.seasons.forEach(tag => {
+    const p = parseEp(tag);
+    if (p) {
+      if (p.e === null) {
+        // We need season episode counts for accuracy, but we'll estimate 10 eps per season if missing
+        watchedEps += 10; 
+      } else {
+        watchedEps += p.e;
+      }
+    }
+  });
+
+  // If we have total episodes, ensure we don't exceed it but also that 
+  // 'active' shows don't look 100% unless they really are (status should be done then)
+  let percent = (watchedEps / totalEps) * 100;
+  return Math.min(95, percent);
 }
 
 function renderSections() {
@@ -476,8 +508,7 @@ async function openModal(id, isTmdbId = false) {
     if (detail.first_air_date) document.getElementById('modalYear').textContent = detail.first_air_date.slice(0, 4);
     
     // Extra info
-    const runtime = detail.episode_run_time && detail.episode_run_time.length ? `${detail.episode_run_time[0]} min` : '';
-    document.getElementById('modalExtraInfo').textContent = `${detail.number_of_seasons} temp. · ${detail.number_of_episodes} eps. ${runtime ? `· ${runtime}` : ''}`;
+    document.getElementById('modalExtraInfo').textContent = `${detail.number_of_seasons} temp. · ${detail.number_of_episodes} eps.`;
     
     if (!inList) {
       document.getElementById('modalAddBtn').onclick = () => { 
@@ -635,6 +666,10 @@ async function saveShow() {
   const rating = ratingRaw ? parseFloat(ratingRaw) : (editTmdbDetail ? tmdbRating(editTmdbDetail) : null);
   let status = document.getElementById('editStatus').value;
   if (editTmdbDetail && editSeasons.length) { const inf = inferStatus(editSeasons, editTmdbDetail, status); if (inf !== status) { status = inf; document.getElementById('editStatus').value = status; } }
+  if (status === 'done' && editTmdbDetail && editTmdbDetail.seasons) {
+    const realSeasons = editTmdbDetail.seasons.filter(s => s.season_number > 0 && s.episode_count > 0);
+    editSeasons = realSeasons.map(s => `T${s.season_number}`);
+  }
   let nextEp = null;
   if (status === 'waiting' && editTmdbDetail) { const ne = editTmdbDetail.next_episode_to_air; if (ne && ne.air_date) nextEp = `T${ne.season_number} (${fmtDate(ne.air_date)})`; else { const p = editSeasons.length ? parseEp(editSeasons[editSeasons.length - 1]) : null; nextEp = `T${p ? (p.s + 1) : 1}`; } }
   if (status === 'active') {
@@ -654,8 +689,29 @@ async function saveShow() {
       }
     }
   }
-  if (editingId) { const cat = findCat(editingId); const idx = DB[cat].findIndex(s => s.id === editingId); const prev = DB[cat][idx]; const updated = { ...prev, title, rating, status, seasons: [...editSeasons], nextEp }; if (status === cat) DB[cat][idx] = updated; else { DB[cat].splice(idx, 1); DB[status].push(updated); } }
-  else { const basic = editTmdbDetail ? { id: editTmdbDetail.id, poster_path: editTmdbDetail.poster_path, backdrop_path: editTmdbDetail.backdrop_path, overview: editTmdbDetail.overview, first_air_date: editTmdbDetail.first_air_date } : null; const newShow = { id: genId(), title, rating, status, seasons: [...editSeasons], nextEp, tmdb: basic }; DB[status].push(newShow); if (!newShow.tmdb) tmdbSearch(title).then(t => { if (t) { newShow.tmdb = t; renderSections(); } }); }
+  if (editingId) { 
+    const cat = findCat(editingId); 
+    const idx = DB[cat].findIndex(s => s.id === editingId); 
+    const prev = DB[cat][idx]; 
+    const finalSeasons = status === 'done' ? [...editSeasons] : [...editSeasons]; // editSeasons is already updated above
+    const updated = { ...prev, title, rating, status, seasons: finalSeasons, nextEp }; 
+    if (status === cat) DB[cat][idx] = updated; 
+    else { DB[cat].splice(idx, 1); DB[status].push(updated); } 
+  }
+  else { 
+    const basic = editTmdbDetail ? { 
+      id: editTmdbDetail.id, 
+      poster_path: editTmdbDetail.poster_path, 
+      backdrop_path: editTmdbDetail.backdrop_path, 
+      overview: editTmdbDetail.overview, 
+      first_air_date: editTmdbDetail.first_air_date,
+      number_of_seasons: editTmdbDetail.number_of_seasons,
+      number_of_episodes: editTmdbDetail.number_of_episodes
+    } : null; 
+    const newShow = { id: genId(), title, rating, status, seasons: [...editSeasons], nextEp, tmdb: basic }; 
+    DB[status].push(newShow); 
+    if (!newShow.tmdb) tmdbSearch(title).then(t => { if (t) { newShow.tmdb = t; renderSections(); } }); 
+  }
   await saveDB(); updateStats(); 
   if (currentView === 'discover') renderDiscover();
   else renderSections();
@@ -723,6 +779,11 @@ async function init() {
     if (show.tmdb) {
       const d = await tmdbDetail(show.tmdb.id);
       if (d) {
+        if (!show.tmdb.number_of_episodes || show.tmdb.number_of_episodes !== d.number_of_episodes) {
+          show.tmdb.number_of_episodes = d.number_of_episodes;
+          show.tmdb.number_of_seasons = d.number_of_seasons;
+          changesMade = true;
+        }
         let r = tmdbRating(d); if (r && !show.rating) { show.rating = r; changesMade = true; }
         const c = await autoCorrectStatus(show, d); if (c) changesMade = true;
       }

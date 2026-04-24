@@ -1,5 +1,5 @@
 // ── TMDB API CONFIG ──────────────────────────────
-const TMDB_KEY = '__TMDB_KEY__';
+const TMDB_KEY = (window.LOCAL_CONFIG && window.LOCAL_CONFIG.TMDB_KEY) || '__TMDB_KEY__';
 const IMG = 'https://image.tmdb.org/t/p/w342';
 const BG = 'https://image.tmdb.org/t/p/w780';
 const LOGO_BASE = 'https://image.tmdb.org/t/p/w45';

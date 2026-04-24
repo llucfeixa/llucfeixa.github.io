@@ -1,5 +1,5 @@
 // ── FIREBASE INIT ────────────────────────────────
-const firebaseConfig = {
+const firebaseConfig = (window.LOCAL_CONFIG && window.LOCAL_CONFIG.FIREBASE) ? window.LOCAL_CONFIG.FIREBASE : {
   apiKey: "__FIREBASE_API_KEY__",
   authDomain: "__FIREBASE_AUTH_DOMAIN__",
   projectId: "__FIREBASE_PROJECT_ID__",
