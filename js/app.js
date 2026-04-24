@@ -9,9 +9,9 @@ let trendingHasMore = true, topRatedHasMore = true, searchHasMore = true;
 let genreStates = {}; // Stores { page, cache, hasMore } per genreId
 
 function getAllShows() { return [...DB.active, ...DB.waiting, ...DB.pending, ...DB.done] }
-function findShow(id) { return getAllShows().find(s => s.id === id) }
-function findCat(id) { for (const c of ['active', 'waiting', 'pending', 'done']) if (DB[c].find(s => s.id === id)) return c; return null }
-function removeFromDB(id) { for (const c of ['active', 'waiting', 'pending', 'done']) DB[c] = DB[c].filter(s => s.id !== id) }
+function findShow(id) { return getAllShows().find(s => String(s.id) === String(id)) }
+function findCat(id) { for (const c of ['active', 'waiting', 'pending', 'done']) if (DB[c].find(s => String(s.id) === String(id))) return c; return null }
+function removeFromDB(id) { for (const c of ['active', 'waiting', 'pending', 'done']) DB[c] = DB[c].filter(s => String(s.id) !== String(id)) }
 function isDuplicate(title, excludeId = null, tmdbId = null) {
   const n = t => t.toLowerCase().trim();
   return getAllShows().some(s => {
@@ -68,11 +68,11 @@ function createCard(show) {
 <div class="card-poster" onclick="openModal('${id}')">
   ${poster ? `<img src="${poster}" alt="${show.title}" loading="lazy">` : `<div class="card-poster-placeholder"><span>📺</span><p>${show.title}</p></div>`}
   ${rating ? `<div class="card-rating">★${rating}</div>` : ''}
-  <div class="card-actions">
-    <button class="card-action-btn" onclick="event.stopPropagation();openEdit('${id}')">✏️</button>
-    <button class="card-action-btn del" onclick="event.stopPropagation();confirmDelete('${id}')">🗑</button>
-  </div>
   ${hasNext ? `<button class="card-next-btn" onclick="event.stopPropagation();quickAdvance('${id}')">▶ Marcar ${show.nextEp.split(' ')[0]}</button>` : ''}
+</div>
+<div class="card-actions">
+  <button class="card-action-btn" onclick="event.stopPropagation();openEdit('${id}')">✏️</button>
+  <button class="card-action-btn del" onclick="event.stopPropagation();confirmDelete('${id}')">🗑</button>
 </div>
 <div class="card-body" onclick="openModal('${id}')">
   <div class="card-title">${show.title}</div>
@@ -93,14 +93,14 @@ function calculateProgress(show) {
 
   const totalEps = show.tmdb.number_of_episodes;
   let watchedEps = 0;
-  
+
   // Estimate watched episodes
   show.seasons.forEach(tag => {
     const p = parseEp(tag);
     if (p) {
       if (p.e === null) {
         // We need season episode counts for accuracy, but we'll estimate 10 eps per season if missing
-        watchedEps += 10; 
+        watchedEps += 10;
       } else {
         watchedEps += p.e;
       }
@@ -192,7 +192,7 @@ async function renderDiscover(append = false) {
     defContent.style.display = 'none';
     searchResults.style.display = 'block';
     document.querySelector('#discoverSearchResults .section-title').textContent = 'Resultados de búsqueda';
-    
+
     // Cleanup other buttons
     ['loadMoreTrending', 'loadMoreTop', 'loadMoreGenre'].forEach(id => { const b = document.getElementById(id); if (b) b.remove(); });
 
@@ -203,7 +203,7 @@ async function renderDiscover(append = false) {
 
     const results = await tmdbMulti(q, searchPage);
     if (!append) searchGrid.innerHTML = '';
-    
+
     if (!results.length && !append) {
       searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No se encontraron series.</div>';
       searchHasMore = false;
@@ -219,7 +219,7 @@ async function renderDiscover(append = false) {
       searchGrid.innerHTML += newHtml;
       searchHasMore = results.length >= 20;
     }
-    
+
     updateLoadMoreBtn(searchGrid, 'loadMoreSearch', searchHasMore, () => { searchPage++; renderDiscover(true); });
     return;
   }
@@ -229,7 +229,7 @@ async function renderDiscover(append = false) {
     searchResults.style.display = 'block';
     const genreName = genreCache.find(g => g.id === currentGenreId)?.name || 'Género';
     document.querySelector('#discoverSearchResults .section-title').textContent = 'Género: ' + genreName;
-    
+
     // Cleanup other buttons
     ['loadMoreTrending', 'loadMoreTop', 'loadMoreSearch'].forEach(id => { const b = document.getElementById(id); if (b) b.remove(); });
 
@@ -241,7 +241,7 @@ async function renderDiscover(append = false) {
     if (!state.cache.length && !append) {
       searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Filtrando...</div>';
     }
-    
+
     if (append && state.hasMore) {
       const res = await tmdbDiscoverByGenre(currentGenreId, state.page);
       state.cache = [...state.cache, ...res];
@@ -253,7 +253,7 @@ async function renderDiscover(append = false) {
 
     // Deduplicate cache just in case
     state.cache = [...new Map(state.cache.map(s => [s.id, s])).values()];
-    
+
     searchGrid.innerHTML = state.cache.map(s => renderDiscoverCard(s)).join('');
     updateLoadMoreBtn(searchGrid, 'loadMoreGenre', state.hasMore, () => { state.page++; renderDiscover(true); });
     return;
@@ -279,7 +279,7 @@ async function renderDiscover(append = false) {
   trendingCache = [...new Map(trendingCache.map(s => [s.id, s])).values()];
   trendingGrid.innerHTML = trendingCache.map(s => renderDiscoverCard(s)).join('');
   updateLoadMoreBtn(trendingGrid, 'loadMoreTrending', trendingHasMore, () => { trendingPage++; renderDiscover(true); });
-  
+
   // Top Rated
   if (!topRatedCache.length) {
     topGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div></div>';
@@ -299,13 +299,13 @@ async function renderDiscover(append = false) {
 function updateLoadMoreBtn(container, id, show, onClick) {
   let btn = document.getElementById(id);
   if (!show) { if (btn) btn.remove(); return; }
-  
+
   if (!btn) {
     btn = document.createElement('button');
     btn.id = id; btn.className = 'btn btn-ghost'; btn.style = 'margin:1.5rem auto;display:block';
     container.after(btn);
   }
-  
+
   btn.onclick = (e) => {
     btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;margin:0"></div>';
     onClick();
@@ -344,7 +344,7 @@ async function handleDiscoverSearch() {
       else b.classList.remove('active');
     });
   }
-  
+
   clearTimeout(discoverTimer);
   discoverTimer = setTimeout(() => {
     searchPage = 1; // Reset page when typing new search
@@ -360,7 +360,7 @@ async function discoverAdd(tmdbId, name, poster, date, backdrop) {
 function filterByGenre(id) {
   currentGenreId = id;
   if (id) document.getElementById('discoverSearchInput').value = ''; // Clear search if filtering by genre
-  
+
   document.querySelectorAll('.genre-tag').forEach(b => {
     if (id === null && b.id === 'genreAll') b.classList.add('active');
     else if (b.dataset.id == id) b.classList.add('active');
@@ -372,10 +372,10 @@ function filterByGenre(id) {
 async function renderCalendar() {
   const grid = document.getElementById('calendarGrid');
   grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Calculando estrenos...</div>';
-  
+
   const activeShows = DB.active;
   const releases = [];
-  
+
   for (const show of activeShows) {
     const detail = await getShowDetail(show);
     if (detail && detail.next_episode_to_air) {
@@ -383,14 +383,14 @@ async function renderCalendar() {
       releases.push({ show, ep: ne, date: new Date(ne.air_date) });
     }
   }
-  
+
   releases.sort((a, b) => a.date - b.date);
-  
+
   if (!releases.length) {
     grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No hay estrenos próximos programados para tus series en curso.</div>';
     return;
   }
-  
+
   grid.innerHTML = releases.map(r => {
     const d = r.date;
     const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
@@ -411,7 +411,7 @@ async function renderCalendar() {
 function updateStats() {
   const bar = document.getElementById('statsBar');
   if (!bar) return;
-  
+
   let totalEps = 0;
   getAllShows().forEach(s => {
     if (s.seasons) {
@@ -460,10 +460,10 @@ async function openModal(id, isTmdbId = false) {
     show = findShow(id);
   }
   if (!show) return;
-  
+
   const inList = show.id !== undefined;
   openModalId = show.id || null;
-  
+
   const cfg = sc(show.status || 'pending');
   document.getElementById('modalTitle').textContent = show.title;
   document.getElementById('modalBadge').innerHTML = inList ? `<span class="badge ${cfg.badge}" style="margin-bottom:0.4rem">${cfg.label}</span>` : '';
@@ -479,7 +479,7 @@ async function openModal(id, isTmdbId = false) {
   document.getElementById('modalCastWrap').style.display = 'none';
   document.getElementById('modalSimilarWrap').style.display = 'none';
   document.getElementById('modalPlatforms').innerHTML = '';
-  
+
   if (inList) {
     document.getElementById('modalEditBtn').style.display = 'block';
     document.getElementById('modalAddBtn').style.display = 'none';
@@ -497,7 +497,7 @@ async function openModal(id, isTmdbId = false) {
     document.getElementById('modalNextEpVal').textContent = show.nextEp;
     document.getElementById('advanceBtn').onclick = () => advanceFromModal(show.id);
   } else nb.style.display = 'none';
-  
+
   document.getElementById('modalOverlay').classList.add('open');
 
   const detail = await (isTmdbId ? tmdbDetail(id) : getShowDetail(show));
@@ -506,14 +506,14 @@ async function openModal(id, isTmdbId = false) {
     if (detail.backdrop_path) document.getElementById('modalBackdrop').src = `${BG}${detail.backdrop_path}`;
     if (detail.overview) document.getElementById('modalOverview').textContent = detail.overview;
     if (detail.first_air_date) document.getElementById('modalYear').textContent = detail.first_air_date.slice(0, 4);
-    
+
     // Extra info
     document.getElementById('modalExtraInfo').textContent = `${detail.number_of_seasons} temp. · ${detail.number_of_episodes} eps.`;
-    
+
     if (!inList) {
-      document.getElementById('modalAddBtn').onclick = () => { 
-        closeModal(); 
-        openAdd(); 
+      document.getElementById('modalAddBtn').onclick = () => {
+        closeModal();
+        openAdd();
         selectTmdb(detail.id, detail.name, detail.poster_path, detail.first_air_date, detail.backdrop_path);
       };
     }
@@ -689,37 +689,76 @@ async function saveShow() {
       }
     }
   }
-  if (editingId) { 
-    const cat = findCat(editingId); 
-    const idx = DB[cat].findIndex(s => s.id === editingId); 
-    const prev = DB[cat][idx]; 
+  if (editingId) {
+    const cat = findCat(editingId);
+    const idx = DB[cat].findIndex(s => s.id === editingId);
+    const prev = DB[cat][idx];
     const finalSeasons = status === 'done' ? [...editSeasons] : [...editSeasons]; // editSeasons is already updated above
-    const updated = { ...prev, title, rating, status, seasons: finalSeasons, nextEp }; 
-    if (status === cat) DB[cat][idx] = updated; 
-    else { DB[cat].splice(idx, 1); DB[status].push(updated); } 
+    const updated = { ...prev, title, rating, status, seasons: finalSeasons, nextEp };
+    if (status === cat) DB[cat][idx] = updated;
+    else { DB[cat].splice(idx, 1); DB[status].push(updated); }
   }
-  else { 
-    const basic = editTmdbDetail ? { 
-      id: editTmdbDetail.id, 
-      poster_path: editTmdbDetail.poster_path, 
-      backdrop_path: editTmdbDetail.backdrop_path, 
-      overview: editTmdbDetail.overview, 
+  else {
+    const basic = editTmdbDetail ? {
+      id: editTmdbDetail.id,
+      poster_path: editTmdbDetail.poster_path,
+      backdrop_path: editTmdbDetail.backdrop_path,
+      overview: editTmdbDetail.overview,
       first_air_date: editTmdbDetail.first_air_date,
       number_of_seasons: editTmdbDetail.number_of_seasons,
       number_of_episodes: editTmdbDetail.number_of_episodes
-    } : null; 
-    const newShow = { id: genId(), title, rating, status, seasons: [...editSeasons], nextEp, tmdb: basic }; 
-    DB[status].push(newShow); 
-    if (!newShow.tmdb) tmdbSearch(title).then(t => { if (t) { newShow.tmdb = t; renderSections(); } }); 
+    } : null;
+    const newShow = { id: genId(), title, rating, status, seasons: [...editSeasons], nextEp, tmdb: basic };
+    DB[status].push(newShow);
+    if (!newShow.tmdb) tmdbSearch(title).then(t => { if (t) { newShow.tmdb = t; renderSections(); } });
   }
-  await saveDB(); updateStats(); 
+  await saveDB(); updateStats();
   if (currentView === 'discover') renderDiscover();
   else renderSections();
   closeEdit(); showToast(editingId ? '✅ Guardado' : '✅ Serie añadida');
 }
-async function deleteShow(id) { removeFromDB(id); await saveDB(); updateStats(); renderSections(); closeModal(); closeEdit(); showToast('🗑 Eliminada') }
-function confirmDelete(id) { if (confirm('¿Eliminar esta serie?')) deleteShow(id) }
-function deleteCurrentShow() { if (editingId) confirmDelete(editingId) }
+async function deleteShow(id) {
+  try {
+    removeFromDB(id);
+    await saveDB();
+    updateStats();
+    if (currentView === 'discover') renderDiscover(); else renderSections();
+    closeModal();
+    closeEdit();
+    showToast('🗑 Eliminada');
+  } catch (e) {
+    alert("Error en deleteShow: " + e.message);
+  }
+}
+let showToDelete = null;
+
+function closeConfirmModal() {
+  const overlay = document.getElementById('confirmOverlay');
+  if (overlay) {
+    overlay.classList.remove('open');
+    setTimeout(() => overlay.style.display = 'none', 280);
+  }
+  showToDelete = null;
+}
+
+function confirmDelete(id) {
+  showToDelete = id;
+  const overlay = document.getElementById('confirmOverlay');
+  if (overlay) {
+    overlay.style.display = 'flex';
+    setTimeout(() => overlay.classList.add('open'), 10);
+    
+    document.getElementById('confirmDeleteBtn').onclick = () => {
+      if (showToDelete) {
+        deleteShow(showToDelete);
+      }
+      closeConfirmModal();
+    };
+  }
+}
+function deleteCurrentShow() {
+  if (editingId) confirmDelete(editingId);
+}
 
 // ── TMDB autocomplete ─────────────────────────────
 document.getElementById('tmdbSearchInput').addEventListener('input', function () {
@@ -765,13 +804,26 @@ document.getElementById('editTitle').addEventListener('input', () => { document.
 document.getElementById('discoverSearchInput').addEventListener('input', handleDiscoverSearch);
 
 // ── INIT ──────────────────────────────────────────
+let isInitializing = false;
 async function init() {
-  const saved = await loadDB();
-  DB = saved || { active: [], waiting: [], pending: [], done: [] };
-  const moved = checkAutoMove();
-  if (moved) showToast(`📺 ${moved} serie${moved > 1 ? 's' : ''} pasada${moved > 1 ? 's' : ''} a "En curso"`);
-  updateStats(); renderSections();
+  if (isInitializing) return;
+  isInitializing = true;
+  
+  try {
+    const saved = await loadDB();
+    DB = saved || { active: [], waiting: [], pending: [], done: [] };
+    const moved = checkAutoMove();
+    if (moved) showToast(`📺 ${moved} serie${moved > 1 ? 's' : ''} pasada${moved > 1 ? 's' : ''} a "En curso"`);
+    updateStats(); renderSections();
 
+    // Sync TMDB data in background
+    syncTMDBData();
+  } finally {
+    isInitializing = false;
+  }
+}
+
+async function syncTMDBData() {
   let changesMade = false;
   for (const show of getAllShows()) {
     if (show.status === 'pending') continue;
@@ -791,5 +843,10 @@ async function init() {
     }
   }
   if (changesMade) { await saveDB(); updateStats(); renderSections(); }
-  setInterval(async () => { const n = checkAutoMove(); if (n) { await saveDB(); updateStats(); renderSections(); showToast(`📺 ${n} serie${n > 1 ? 's' : ''} movida a "En curso"`); } }, 3600000);
 }
+
+setInterval(async () => { 
+  const n = checkAutoMove(); 
+  if (n) { await saveDB(); updateStats(); renderSections(); showToast(`📺 ${n} serie${n > 1 ? 's' : ''} movida a "En curso"`); } 
+}, 3600000);
+
