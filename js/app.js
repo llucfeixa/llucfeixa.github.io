@@ -513,7 +513,7 @@ async function openModal(id, isTmdbId = false) {
     if (!inList) {
       document.getElementById('modalAddBtn').onclick = () => {
         closeModal();
-        openAdd();
+        openAdd(true);
         selectTmdb(detail.id, detail.name, detail.poster_path, detail.first_air_date, detail.backdrop_path);
       };
     }
@@ -588,12 +588,6 @@ async function advanceFromModal(id) {
 function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); openModalId = null }
 
 // ── SEASON PICKER ─────────────────────────────────
-function renderSeasonTags() {
-  const list = document.getElementById('seasonsList');
-  if (!editSeasons.length) { list.innerHTML = '<span style="color:var(--muted);font-size:0.76rem;font-style:italic">Nada añadido aún</span>'; return; }
-  list.innerHTML = editSeasons.map((s, i) => `<span class="season-tag${i === editSeasons.length - 1 ? ' cur' : ''}">
-${s}<button onclick="removeSeasonTag(${i})" title="Eliminar">×</button></span>`).join('');
-}
 async function buildPickerOptions(detail) {
   const sSel = document.getElementById('pickerSeason'); sSel.innerHTML = '<option value="">— Temporada —</option>'; resetEpSelect();
   if (detail && detail.seasons) {
@@ -605,7 +599,7 @@ async function buildPickerOptions(detail) {
 function resetEpSelect() {
   const eSel = document.getElementById('pickerEp');
   eSel.innerHTML = '<option value="">— Episodio —</option><option value="all">✅ Temporada completa</option>';
-  eSel.disabled = true; document.getElementById('addEpBtn').disabled = true;
+  eSel.disabled = true;
 }
 function onPickerSeasonChange() {
   const sVal = document.getElementById('pickerSeason').value; if (!sVal) { resetEpSelect(); return; }
@@ -614,31 +608,21 @@ function onPickerSeasonChange() {
   if (editTmdbDetail && editTmdbDetail.seasons) { const s = editTmdbDetail.seasons.find(x => x.season_number === sNum); if (s) epCount = s.episode_count; }
   eSel.innerHTML = '<option value="">— Episodio —</option><option value="all">✅ Temporada completa</option>';
   const max = epCount || 30; for (let e = 1; e <= max; e++)eSel.innerHTML += `<option value="${e}">Episodio ${e}</option>`;
-  eSel.disabled = false; document.getElementById('addEpBtn').disabled = false;
+  eSel.disabled = false;
 }
-function addPickedEp() {
-  const sVal = document.getElementById('pickerSeason').value; const eVal = document.getElementById('pickerEp').value;
-  if (!sVal) return; const sNum = parseInt(sVal);
-  const ns = [];
-  for (let s = 1; s < sNum; s++)ns.push(`T${s}`);
-  if (eVal === 'all' || !eVal) ns.push(`T${sNum}`);
-  else ns.push(`T${sNum}E${eVal}`);
-  editSeasons = ns; renderSeasonTags();
-  document.getElementById('pickerSeason').value = ''; resetEpSelect();
-  const label = eVal && eVal !== 'all' ? `T${sNum}E${eVal}` : `T${sNum} (completa)`;
-  showToast(`✅ Posición: ${label}`);
-}
-function removeSeasonTag(i) { editSeasons.splice(i, 1); renderSeasonTags() }
 
 // ── EDIT MODAL ────────────────────────────────────
-async function openAdd() {
+async function openAdd(hideSearch) {
+  const shouldHide = hideSearch === true;
   editingId = null; editSeasons = []; editTmdbDetail = null;
   document.getElementById('editModalTitle').textContent = '➕ Añadir serie';
   document.getElementById('editTitle').value = ''; document.getElementById('editRating').value = '';
   document.getElementById('editStatus').value = 'pending';
+  document.getElementById('tmdbSearchGroup').style.display = shouldHide ? 'none' : 'block';
   document.getElementById('tmdbSearchInput').value = ''; document.getElementById('tmdbResults').style.display = 'none';
   document.getElementById('dupWarning').style.display = 'none'; document.getElementById('deleteBtn').style.display = 'none';
-  renderSeasonTags(); await buildPickerOptions(null); document.getElementById('editOverlay').classList.add('open');
+  await buildPickerOptions(null); document.getElementById('editOverlay').classList.add('open');
+  togglePickerGroup();
 }
 async function openEdit(id) {
   const show = findShow(id); if (!show) return;
@@ -646,13 +630,28 @@ async function openEdit(id) {
   document.getElementById('editModalTitle').textContent = '✏️ Editar serie';
   document.getElementById('editTitle').value = show.title; document.getElementById('editRating').value = show.rating || '';
   document.getElementById('editStatus').value = show.status;
+  document.getElementById('tmdbSearchGroup').style.display = 'none';
   document.getElementById('tmdbSearchInput').value = ''; document.getElementById('tmdbResults').style.display = 'none';
   document.getElementById('dupWarning').style.display = 'none'; document.getElementById('deleteBtn').style.display = 'block';
-  renderSeasonTags(); document.getElementById('editOverlay').classList.add('open');
+  document.getElementById('editOverlay').classList.add('open');
+  togglePickerGroup();
   document.getElementById('pickerLoading').style.display = 'flex'; document.getElementById('pickerMain').style.display = 'none';
   editTmdbDetail = await getShowDetail(show);
   document.getElementById('pickerLoading').style.display = 'none'; document.getElementById('pickerMain').style.display = 'block';
   await buildPickerOptions(editTmdbDetail);
+  if (editSeasons.length > 0) {
+    const last = editSeasons[editSeasons.length - 1];
+    const p = parseEp(last);
+    if (p) {
+      document.getElementById('pickerSeason').value = p.s;
+      onPickerSeasonChange();
+      if (p.e !== null) document.getElementById('pickerEp').value = p.e;
+      else document.getElementById('pickerEp').value = 'all';
+    }
+  } else {
+    document.getElementById('pickerSeason').value = '';
+    resetEpSelect();
+  }
 }
 function closeEdit() { document.getElementById('editOverlay').classList.remove('open'); document.getElementById('tmdbResults').style.display = 'none'; }
 
@@ -665,6 +664,22 @@ async function saveShow() {
   const ratingRaw = document.getElementById('editRating').value;
   const rating = ratingRaw ? parseFloat(ratingRaw) : (editTmdbDetail ? tmdbRating(editTmdbDetail) : null);
   let status = document.getElementById('editStatus').value;
+  if (status === 'active') {
+    const sVal = document.getElementById('pickerSeason').value;
+    const eVal = document.getElementById('pickerEp').value;
+    if (sVal) {
+      const sNum = parseInt(sVal);
+      const ns = [];
+      for (let s = 1; s < sNum; s++) ns.push(`T${s}`);
+      if (eVal === 'all' || !eVal) ns.push(`T${sNum}`);
+      else ns.push(`T${sNum}E${eVal}`);
+      editSeasons = ns;
+    } else {
+      editSeasons = ['T1E1'];
+    }
+  } else if (status === 'pending') {
+    editSeasons = [];
+  }
   if (editTmdbDetail && editSeasons.length) { const inf = inferStatus(editSeasons, editTmdbDetail, status); if (inf !== status) { status = inf; document.getElementById('editStatus').value = status; } }
   if (status === 'done' && editTmdbDetail && editTmdbDetail.seasons) {
     const realSeasons = editTmdbDetail.seasons.filter(s => s.season_number > 0 && s.episode_count > 0);
@@ -803,7 +818,13 @@ document.getElementById('editOverlay').addEventListener('click', e => { if (e.ta
 document.getElementById('editTitle').addEventListener('input', () => { document.getElementById('dupWarning').style.display = 'none'; });
 document.getElementById('discoverSearchInput').addEventListener('input', handleDiscoverSearch);
 
-// ── INIT ──────────────────────────────────────────
+function togglePickerGroup() {
+  const status = document.getElementById('editStatus').value;
+  document.getElementById('progressGroup').style.display = (status === 'active') ? 'block' : 'none';
+}
+document.getElementById('editStatus').addEventListener('change', togglePickerGroup);
+
+// ── UTILS ──────────────────────────────────────────
 let isInitializing = false;
 async function init() {
   if (isInitializing) return;

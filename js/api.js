@@ -146,12 +146,12 @@ function buildTmdbNextEpBlock(detail, show) {
   const ne = detail.next_episode_to_air, st = detail.status;
   if (show.status === 'active' && ne) {
     const d = fmtDate(ne.air_date);
-    return `<div class="next-ep-tmdb">📡 Según TMDB: próximo <strong>T${ne.season_number}E${ne.episode_number}</strong>${d ? ` — <strong>${d}</strong>` : ''}${ne.name ? ` · "${ne.name}"` : ''}` + `</div>`;
+    return `<div class="next-ep-tmdb">📡 <strong>T${ne.season_number}E${ne.episode_number}</strong>${d ? ` — <strong>${d}</strong>` : ''}${ne.name ? ` · "${ne.name}"` : ''}` + `</div>`;
   }
   if (show.status === 'waiting') {
     if (ne && ne.air_date) return `<div class="next-ep-tmdb">📅 T${ne.season_number} confirmada para <strong>${fmtDate(ne.air_date)}</strong></div>`;
     if (st === 'Ended' || st === 'Canceled') return `<div class="season-ended-info">🔚 TMDB indica que esta serie ha finalizado</div>`;
-    return `<div class="season-ended-info">⏳ Sin fecha anunciada · Estado TMDB: <strong>${st || 'Desconocido'}</strong></div>`;
+    return `<div class="season-ended-info">⏳ Sin fecha anunciada: <strong>${st || 'Desconocido'}</strong></div>`;
   }
   if (show.status === 'done') return `<div class="season-ended-info">✅ Serie finalizada · ${detail.number_of_seasons || ''} temporadas · ${detail.number_of_episodes || ''} episodios</div>`;
   return '';

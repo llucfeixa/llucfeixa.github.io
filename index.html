@@ -201,7 +201,7 @@
         <button class="modal-close" id="editClose"
           style="position:static;background:var(--surface2);width:28px;height:28px">✕</button>
       </div>
-      <div class="form-group">
+      <div class="form-group" id="tmdbSearchGroup">
         <label class="form-label">Buscar en TMDB</label>
         <input type="text" class="form-input" id="tmdbSearchInput" placeholder="Escribe para buscar y autocompletar...">
         <div class="tmdb-results" id="tmdbResults"></div>
@@ -210,10 +210,10 @@
         </div>
       </div>
       <div class="form-group"><label class="form-label">Título</label><input type="text" class="form-input"
-          id="editTitle" placeholder="Nombre de la serie"></div>
+          id="editTitle" placeholder="Nombre de la serie" readonly></div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Nota (1–10)</label><input type="number" class="form-input"
-            id="editRating" min="1" max="10" step="0.1" placeholder="De TMDB"></div>
+            id="editRating" min="1" max="10" step="0.1" placeholder="De TMDB" readonly></div>
         <div class="form-group"><label class="form-label">Estado</label>
           <select class="form-select" id="editStatus">
             <option value="active">📺 En curso</option>
@@ -223,7 +223,7 @@
           </select>
         </div>
       </div>
-      <div class="form-group">
+      <div class="form-group" id="progressGroup">
         <label class="form-label">¿Dónde estás ahora?</label>
         <div class="season-picker">
           <div id="pickerLoading" class="loading-picker" style="display:none">
@@ -238,9 +238,7 @@
                 <option value="">— Episodio —</option>
                 <option value="all">✅ Temporada completa</option>
               </select>
-              <button class="add-ep-btn" id="addEpBtn" onclick="addPickedEp()" disabled>+ Añadir</button>
             </div>
-            <div class="seasons-tags" id="seasonsList" style="margin-top:0.55rem"></div>
             <div class="picker-hint" style="margin-top:0.4rem">Selecciona tu posición. Todo lo anterior se marca visto
               automáticamente.</div>
           </div>
