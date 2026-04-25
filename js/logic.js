@@ -124,6 +124,26 @@ async function autoCorrectStatus(show, detail) {
       show.seasons = tmdbSeasons.map(s => `T${s.season_number}`);
       moveTo(show, 'done', null); return true;
     }
+    const today = new Date().toISOString().split('T')[0];
+    const tmdbSeasons = (detail.seasons || []).filter(s => s.season_number > 0 && s.episode_count > 0);
+    const userSeasons = show.seasons || [];
+    const lastStr = userSeasons.length ? userSeasons[userSeasons.length - 1] : null;
+    const parsed = lastStr ? parseEp(lastStr) : null;
+    const curSeason = parsed ? parsed.s : 0;
+    
+    const newAiredSeason = tmdbSeasons.find(s => s.season_number > curSeason && s.air_date && s.air_date <= today);
+    const hasStarted = (ne && (ne.episode_number > 1 || (ne.episode_number === 1 && ne.air_date && ne.air_date <= today))) || newAiredSeason;
+    
+    if (hasStarted) {
+      const startSeason = newAiredSeason ? newAiredSeason.season_number : (ne ? ne.season_number : curSeason + 1);
+      const sData = tmdbSeasons.find(s => s.season_number === startSeason);
+      const e1Date = sData && sData.air_date ? sData.air_date : null;
+      if (ne && e1Date) {
+        moveTo(show, 'active', `T${startSeason}E1 (${fmtDate(e1Date)})`); return true;
+      } else {
+        moveTo(show, 'active', `T${startSeason}E1`); return true;
+      }
+    }
     if (ne && ne.air_date) {
       const newNext = `T${ne.season_number} (${fmtDate(ne.air_date)})`;
       if (show.nextEp !== newNext) {
@@ -146,9 +166,9 @@ async function autoCorrectStatus(show, detail) {
     if (atEnd) {
       const nextSeaTmdb = tmdbSeasons.find(s => s.season_number === curSeason + 1);
       if (!nextSeaTmdb) {
-        if (tmdbSt === 'Ended' || tmdbSt === 'Canceled') { 
+        if (tmdbSt === 'Ended' || tmdbSt === 'Canceled') {
           show.seasons = tmdbSeasons.map(s => `T${s.season_number}`);
-          moveTo(show, 'done', null); return true; 
+          moveTo(show, 'done', null); return true;
         }
         const nxt = ne && ne.air_date ? `T${ne.season_number} (${fmtDate(ne.air_date)})` : `T${curSeason + 1}`;
         moveTo(show, 'waiting', nxt); return true;
@@ -162,6 +182,6 @@ function checkAutoMove() {
   const now = new Date(), ids = [];
   DB.waiting.forEach(s => { const d = parseDate(s.nextEp); if (d && d <= now) ids.push(s.id) });
   if (!ids.length) return 0;
-  ids.forEach(id => { const s = DB.waiting.find(x => x.id === id); if (s) { s.status = 'active'; s._autoMoved = true; DB.waiting = DB.waiting.filter(x => x.id !== id); DB.active.push(s); } });
+  ids.forEach(id => { const s = DB.waiting.find(x => x.id === id); if (s) { s.status = 'active'; DB.waiting = DB.waiting.filter(x => x.id !== id); DB.active.push(s); } });
   return ids.length;
 }

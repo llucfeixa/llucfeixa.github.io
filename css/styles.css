@@ -507,19 +507,19 @@ h3 {
 .badge-airing {
   background: rgba(76, 175, 125, 0.15);
   color: var(--green);
-  border: 1px solid rgba(76, 175, 125, 0.3)
+  border: 1px solid rgba(76, 175, 125, 0.3);
 }
 
 .badge-waiting {
   background: rgba(91, 155, 213, 0.15);
   color: var(--blue);
-  border: 1px solid rgba(91, 155, 213, 0.3)
+  border: 1px solid rgba(91, 155, 213, 0.3);
 }
 
 .badge-pending {
   background: rgba(155, 126, 200, 0.15);
   color: var(--purple);
-  border: 1px solid rgba(155, 126, 200, 0.3)
+  border: 1px solid rgba(155, 126, 200, 0.3);
 }
 
 .badge-done {

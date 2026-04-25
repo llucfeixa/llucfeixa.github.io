@@ -49,7 +49,7 @@ function createCard(show) {
     return `<div class="list-card">
   <div class="list-thumb" onclick="openModal('${id}')">${poster ? `<img src="${poster}" alt="" loading="lazy">` : '📺'}</div>
   <div class="list-info" onclick="openModal('${id}')">
-    <div class="list-title">${show.title}${show._autoMoved ? ` <span style="font-size:0.65rem;color:var(--green);border:1px solid rgba(76,175,125,0.4);padding:1px 5px;border-radius:4px;background:rgba(76,175,125,0.1)">nuevo</span>` : ''}</div>
+    <div class="list-title">${show.title}</div>
     <div class="list-sub">${show.nextEp ? `Pendiente: <strong>${show.nextEp}</strong>` : `Visto: ${last || '—'}`}</div>
   </div>
   <div class="list-right">
@@ -64,7 +64,7 @@ function createCard(show) {
 </div>`;
   }
   const progress = calculateProgress(show);
-  return `<div class="card${show._autoMoved ? ' auto-moved' : ''}">
+  return `<div class="card">
 <div class="card-poster" onclick="openModal('${id}')">
   ${poster ? `<img src="${poster}" alt="${show.title}" loading="lazy">` : `<div class="card-poster-placeholder"><span>📺</span><p>${show.title}</p></div>`}
   ${rating ? `<div class="card-rating">★${rating}</div>` : ''}
@@ -637,6 +637,7 @@ async function openEdit(id) {
   togglePickerGroup();
   document.getElementById('pickerLoading').style.display = 'flex'; document.getElementById('pickerMain').style.display = 'none';
   editTmdbDetail = await getShowDetail(show);
+  togglePickerGroup();
   document.getElementById('pickerLoading').style.display = 'none'; document.getElementById('pickerMain').style.display = 'block';
   await buildPickerOptions(editTmdbDetail);
   if (editSeasons.length > 0) {
@@ -686,7 +687,19 @@ async function saveShow() {
     editSeasons = realSeasons.map(s => `T${s.season_number}`);
   }
   let nextEp = null;
-  if (status === 'waiting' && editTmdbDetail) { const ne = editTmdbDetail.next_episode_to_air; if (ne && ne.air_date) nextEp = `T${ne.season_number} (${fmtDate(ne.air_date)})`; else { const p = editSeasons.length ? parseEp(editSeasons[editSeasons.length - 1]) : null; nextEp = `T${p ? (p.s + 1) : 1}`; } }
+  if (status === 'waiting' && editTmdbDetail) { 
+    if (editTmdbDetail.seasons) {
+      let maxSeasonToMark = 999;
+      if (editTmdbDetail.next_episode_to_air) {
+        maxSeasonToMark = editTmdbDetail.next_episode_to_air.season_number - 1;
+      }
+      const realSeasons = editTmdbDetail.seasons.filter(s => s.season_number > 0 && s.episode_count > 0 && s.season_number <= maxSeasonToMark);
+      editSeasons = realSeasons.map(s => `T${s.season_number}`);
+    }
+    const ne = editTmdbDetail.next_episode_to_air; 
+    if (ne && ne.air_date) nextEp = `T${ne.season_number} (${fmtDate(ne.air_date)})`; 
+    else { const p = editSeasons.length ? parseEp(editSeasons[editSeasons.length - 1]) : null; nextEp = `T${p ? (p.s + 1) : 1}`; } 
+  }
   if (status === 'active') {
     if (editingId) {
       const ex = findShow(editingId);
@@ -798,6 +811,7 @@ async function selectTmdb(tmdbId, name, poster, date, backdrop) {
   document.getElementById('pickerLoading').style.display = 'flex'; document.getElementById('pickerMain').style.display = 'none'; showToast('⏳ Cargando datos...');
   try {
     const d = await tmdbDetail(tmdbId); editTmdbDetail = d;
+    togglePickerGroup();
     if (d) { tmdbCache[name] = { id: tmdbId, poster_path: poster, backdrop_path: backdrop, name, first_air_date: date, overview: d.overview }; const r = tmdbRating(d); if (r) document.getElementById('editRating').value = r; }
     document.getElementById('pickerLoading').style.display = 'none'; document.getElementById('pickerMain').style.display = 'block';
     await buildPickerOptions(d); showToast('✅ Cargado · ★' + (d && d.vote_average ? d.vote_average.toFixed(1) : '—'));
@@ -819,7 +833,29 @@ document.getElementById('editTitle').addEventListener('input', () => { document.
 document.getElementById('discoverSearchInput').addEventListener('input', handleDiscoverSearch);
 
 function togglePickerGroup() {
-  const status = document.getElementById('editStatus').value;
+  const statusEl = document.getElementById('editStatus');
+  const waitingOpt = statusEl.querySelector('option[value="waiting"]');
+  if (editTmdbDetail) {
+    const isReturning = ['Returning Series', 'In Production', 'Planned'].includes(editTmdbDetail.status);
+    const ne = editTmdbDetail.next_episode_to_air;
+    
+    // Valid waiting condition:
+    // 1. Returning series but no episode announced yet
+    // 2. Or, the next episode to air is the first episode of a season
+    const isValidWaiting = (isReturning && !ne) || (ne && ne.episode_number === 1);
+
+    if (isValidWaiting) {
+      waitingOpt.disabled = false;
+    } else {
+      waitingOpt.disabled = true;
+      if (statusEl.value === 'waiting') {
+        statusEl.value = (ne && ne.episode_number > 1) ? 'active' : 'done';
+      }
+    }
+  } else {
+    waitingOpt.disabled = false;
+  }
+  const status = statusEl.value;
   document.getElementById('progressGroup').style.display = (status === 'active') ? 'block' : 'none';
 }
 document.getElementById('editStatus').addEventListener('change', togglePickerGroup);
