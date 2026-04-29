@@ -46,6 +46,7 @@ function createCard(show) {
   const id = show.id, rating = show.rating ? Number(show.rating).toFixed(1) : '';
   const hasNext = show.status === 'active' && show.seasons && show.seasons.length > 0;
   const isPending = show.status === 'pending';
+  const isFutureStart = isPending && show.nextEp && show.nextEp.includes('(') && parseDate(show.nextEp) > new Date();
 
   if (!isGridView) {
     return `<div class="list-card">
@@ -55,7 +56,6 @@ function createCard(show) {
     <div class="list-sub">${show.nextEp ? `Pendiente: <strong>${show.nextEp}</strong>` : `Visto: ${last || '—'}`}</div>
   </div>
   <div class="list-right">
-    ${rating ? `<span style="color:var(--gold);font-size:0.78rem;font-weight:600">★${rating}</span>` : ''}
     <span class="badge ${cfg.badge}">${cfg.label}</span>
     <div class="list-actions">
       ${hasNext ? `<button class="list-next-btn" onclick="event.stopPropagation();quickAdvance('${id}')">▶ Ya lo vi</button>` : ''}
@@ -674,9 +674,16 @@ async function onPickerSeasonChange() {
   for (let e = 1; e <= epCount; e++) {
     let isLocked = false;
     if (seaDetail && seaDetail.episodes) {
+      // Regla Episodio 1: Si el primer capítulo no ha salido, no se puede seleccionar
+      if (e === 1) {
+        const current = seaDetail.episodes.find(x => x.episode_number === 1);
+        if (current && current.air_date && current.air_date > today) isLocked = true;
+      }
+      
       const prev = seaDetail.episodes.find(x => x.episode_number === e - 1);
       if (prev && prev.air_date && prev.air_date > today) isLocked = true;
-      // También bloqueamos si el propio episodio es muy lejano en el futuro (más de 1 después del último aireado)
+      
+      // También bloqueamos si el propio episodio es muy lejano en el futuro
       const current = seaDetail.episodes.find(x => x.episode_number === e);
       if (current && e > 1) {
         const twoBack = seaDetail.episodes.find(x => x.episode_number === e - 2);
@@ -722,6 +729,28 @@ async function openEdit(id) {
   document.getElementById('tmdbSearchInput').value = ''; document.getElementById('tmdbResults').style.display = 'none';
   document.getElementById('dupWarning').style.display = 'none'; document.getElementById('deleteBtn').style.display = 'block';
   document.getElementById('editOverlay').classList.add('open');
+  
+  // Restringir estados si la serie es futura (solo puede ser "waiting")
+  const isFuture = (!show.seasons || !show.seasons.length) && show.nextEp && show.nextEp.includes('(') && parseDate(show.nextEp) > new Date();
+  // Solo permitir "Finalizada" si la serie ha terminado oficialmente en TMDB
+  const isEnded = editTmdbDetail && (editTmdbDetail.status === 'Ended' || editTmdbDetail.status === 'Canceled');
+
+  const statusSelect = document.getElementById('editStatus');
+  Array.from(statusSelect.options).forEach(opt => {
+    if (isFuture && opt.value !== 'waiting') {
+      opt.disabled = true;
+      opt.style.color = 'var(--muted)';
+    } else if (opt.value === 'done' && !isEnded) {
+      opt.disabled = true;
+      opt.style.color = 'var(--muted)';
+    } else {
+      opt.disabled = false;
+      opt.style.color = '';
+    }
+  });
+  if (isFuture) statusSelect.value = 'waiting';
+  // Si estaba en "Finalizada" pero la serie ya no lo es (p.ej. renovada), forzamos "Esperando"
+  if (statusSelect.value === 'done' && !isEnded) statusSelect.value = 'waiting';
   togglePickerGroup();
   document.getElementById('pickerLoading').style.display = 'flex'; document.getElementById('pickerMain').style.display = 'none';
   editTmdbDetail = await getShowDetail(show);
