@@ -45,6 +45,8 @@ function createCard(show) {
   const last = show.seasons && show.seasons.length ? show.seasons[show.seasons.length - 1] : '';
   const id = show.id, rating = show.rating ? Number(show.rating).toFixed(1) : '';
   const hasNext = show.status === 'active' && show.seasons && show.seasons.length > 0;
+  const isPending = show.status === 'pending';
+
   if (!isGridView) {
     return `<div class="list-card">
   <div class="list-thumb" onclick="openModal('${id}')">${poster ? `<img src="${poster}" alt="" loading="lazy">` : '📺'}</div>
@@ -57,6 +59,7 @@ function createCard(show) {
     <span class="badge ${cfg.badge}">${cfg.label}</span>
     <div class="list-actions">
       ${hasNext ? `<button class="list-next-btn" onclick="event.stopPropagation();quickAdvance('${id}')">▶ Ya lo vi</button>` : ''}
+      ${isPending ? `<button class="list-next-btn" onclick="event.stopPropagation();startWatching('${id}')">▶ Empezar</button>` : ''}
       <button class="list-action-btn" onclick="event.stopPropagation();openEdit('${id}')">✏️</button>
       <button class="list-action-btn del" onclick="event.stopPropagation();confirmDelete('${id}')">🗑</button>
     </div>
@@ -69,6 +72,7 @@ function createCard(show) {
   ${poster ? `<img src="${poster}" alt="${show.title}" loading="lazy">` : `<div class="card-poster-placeholder"><span>📺</span><p>${show.title}</p></div>`}
   ${rating ? `<div class="card-rating">★${rating}</div>` : ''}
   ${hasNext ? `<button class="card-next-btn" onclick="event.stopPropagation();quickAdvance('${id}')">▶ Marcar ${show.nextEp.split(' ')[0]}</button>` : ''}
+  ${isPending ? `<button class="card-next-btn" onclick="event.stopPropagation();startWatching('${id}')">▶ Empezar a ver</button>` : ''}
 </div>
 <div class="card-actions">
   <button class="card-action-btn" onclick="event.stopPropagation();openEdit('${id}')">✏️</button>
@@ -442,6 +446,22 @@ async function quickAdvance(id) {
   await saveDB(); updateStats(); renderSections(); showToast(toastMsg);
 }
 
+async function startWatching(id) {
+  const show = findShow(id);
+  if (!show) return;
+  const old = findCat(id);
+  DB[old] = DB[old].filter(s => s.id !== id);
+  show.status = 'active';
+  show.seasons = ['T1E1'];
+  show.nextEp = 'T1E1';
+  DB['active'].push(show);
+
+  await saveDB();
+  updateStats();
+  renderSections();
+  showToast('📺 ¡Empezamos! T1E1 añadido');
+}
+
 // ── DETAIL MODAL ──────────────────────────────────
 function renderModalSeasons(show) {
   const seasons = show.seasons || [];
@@ -491,12 +511,23 @@ async function openModal(id, isTmdbId = false) {
 
   renderModalSeasons(show);
   const hasNext = inList && show.status === 'active' && show.nextEp;
+  const isPending = inList && show.status === 'pending';
   const nb = document.getElementById('modalNextEpBlock');
+  const sb = document.getElementById('modalStartBlock');
+
   if (hasNext) {
     nb.style.display = 'block';
     document.getElementById('modalNextEpVal').textContent = show.nextEp;
     document.getElementById('advanceBtn').onclick = () => advanceFromModal(show.id);
   } else nb.style.display = 'none';
+
+  if (isPending) {
+    sb.style.display = 'block';
+    document.getElementById('startBtn').onclick = async () => {
+      await startWatching(show.id);
+      closeModal();
+    };
+  } else sb.style.display = 'none';
 
   document.getElementById('modalOverlay').classList.add('open');
 
@@ -592,7 +623,13 @@ async function buildPickerOptions(detail) {
   const sSel = document.getElementById('pickerSeason'); sSel.innerHTML = '<option value="">— Temporada —</option>'; resetEpSelect();
   if (detail && detail.seasons) {
     const real = detail.seasons.filter(s => s.season_number > 0 && s.episode_count > 0);
-    if (real.length) { for (const s of real) { const nm = s.name && s.name !== `Season ${s.season_number}` && s.name !== `Temporada ${s.season_number}` ? ` · ${s.name}` : ''; sSel.innerHTML += `<option value="${s.season_number}">T${s.season_number} (${s.episode_count} ep${nm})</option>`; } return; }
+    if (real.length) {
+      for (const s of real) {
+        const nm = s.name && s.name !== `Season ${s.season_number}` && s.name !== `Temporada ${s.season_number}` ? ` · ${s.name}` : '';
+        sSel.innerHTML += `<option value="${s.season_number}">T${s.season_number} (${s.episode_count} ep${nm})</option>`;
+      }
+      return;
+    }
   }
   for (let i = 1; i <= 15; i++)sSel.innerHTML += `<option value="${i}">Temporada ${i}</option>`;
 }
@@ -676,7 +713,7 @@ async function saveShow() {
       else ns.push(`T${sNum}E${eVal}`);
       editSeasons = ns;
     } else {
-      editSeasons = ['T1E1'];
+      editSeasons = [];
     }
   } else if (status === 'pending') {
     editSeasons = [];
@@ -687,7 +724,7 @@ async function saveShow() {
     editSeasons = realSeasons.map(s => `T${s.season_number}`);
   }
   let nextEp = null;
-  if (status === 'waiting' && editTmdbDetail) { 
+  if (status === 'waiting' && editTmdbDetail) {
     if (editTmdbDetail.seasons) {
       let maxSeasonToMark = 999;
       if (editTmdbDetail.next_episode_to_air) {
@@ -696,9 +733,9 @@ async function saveShow() {
       const realSeasons = editTmdbDetail.seasons.filter(s => s.season_number > 0 && s.episode_count > 0 && s.season_number <= maxSeasonToMark);
       editSeasons = realSeasons.map(s => `T${s.season_number}`);
     }
-    const ne = editTmdbDetail.next_episode_to_air; 
-    if (ne && ne.air_date) nextEp = `T${ne.season_number} (${fmtDate(ne.air_date)})`; 
-    else { const p = editSeasons.length ? parseEp(editSeasons[editSeasons.length - 1]) : null; nextEp = `T${p ? (p.s + 1) : 1}`; } 
+    const ne = editTmdbDetail.next_episode_to_air;
+    if (ne && ne.air_date) nextEp = `T${ne.season_number} (${fmtDate(ne.air_date)})`;
+    else { const p = editSeasons.length ? parseEp(editSeasons[editSeasons.length - 1]) : null; nextEp = `T${p ? (p.s + 1) : 1}`; }
   }
   if (status === 'active') {
     if (editingId) {
@@ -775,7 +812,7 @@ function confirmDelete(id) {
   if (overlay) {
     overlay.style.display = 'flex';
     setTimeout(() => overlay.classList.add('open'), 10);
-    
+
     document.getElementById('confirmDeleteBtn').onclick = () => {
       if (showToDelete) {
         deleteShow(showToDelete);
@@ -838,7 +875,7 @@ function togglePickerGroup() {
   if (editTmdbDetail) {
     const isReturning = ['Returning Series', 'In Production', 'Planned'].includes(editTmdbDetail.status);
     const ne = editTmdbDetail.next_episode_to_air;
-    
+
     // Valid waiting condition:
     // 1. Returning series but no episode announced yet
     // 2. Or, the next episode to air is the first episode of a season
@@ -865,7 +902,7 @@ let isInitializing = false;
 async function init() {
   if (isInitializing) return;
   isInitializing = true;
-  
+
   try {
     const saved = await loadDB();
     DB = saved || { active: [], waiting: [], pending: [], done: [] };
@@ -915,8 +952,8 @@ async function syncTMDBData() {
   if (changesMade) { await saveDB(); updateStats(); renderSections(); }
 }
 
-setInterval(async () => { 
-  const n = checkAutoMove(); 
-  if (n) { await saveDB(); updateStats(); renderSections(); showToast(`📺 ${n} serie${n > 1 ? 's' : ''} movida a "En curso"`); } 
+setInterval(async () => {
+  const n = checkAutoMove();
+  if (n) { await saveDB(); updateStats(); renderSections(); showToast(`📺 ${n} serie${n > 1 ? 's' : ''} movida a "En curso"`); }
 }, 3600000);
 
