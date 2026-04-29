@@ -440,7 +440,9 @@ function updateStats() {
 async function quickAdvance(id) {
   const show = findShow(id); if (!show) return;
   const detail = await getShowDetail(show);
-  const { newSeasons, newNextEp, newStatus, toastMsg } = await computeAdvance(show, detail);
+  const res = await computeAdvance(show, detail);
+  if (res.error) { showToast(res.error, 'var(--red)'); return; }
+  const { newSeasons, newNextEp, newStatus, toastMsg } = res;
   show.seasons = newSeasons; show.nextEp = newNextEp;
   if (newStatus !== show.status) { const old = findCat(id); DB[old] = DB[old].filter(s => s.id !== id); show.status = newStatus; DB[newStatus].push(show); }
   await saveDB(); updateStats(); renderSections(); showToast(toastMsg);
@@ -604,7 +606,9 @@ async function openModal(id, isTmdbId = false) {
 async function advanceFromModal(id) {
   const show = findShow(id); if (!show) return;
   const detail = await getShowDetail(show);
-  const { newSeasons, newNextEp, newStatus, toastMsg } = await computeAdvance(show, detail);
+  const res = await computeAdvance(show, detail);
+  if (res.error) { showToast(res.error, 'var(--red)'); return; }
+  const { newSeasons, newNextEp, newStatus, toastMsg } = res;
   show.seasons = newSeasons; show.nextEp = newNextEp;
   if (newStatus !== show.status) {
     const old = findCat(id); DB[old] = DB[old].filter(s => s.id !== id); show.status = newStatus; DB[newStatus].push(show);

@@ -27,6 +27,11 @@ async function computeAdvance(show, detail) {
   let isSeasonFinished = (totalEps !== null && newEp > totalEps);
   if (ne && ne.season_number === newSeason && ne.episode_number > newEp) isSeasonFinished = false;
 
+  const today = new Date().toISOString().split('T')[0];
+  if (ne && ne.season_number === newSeason && ne.episode_number === newEp && ne.air_date > today) {
+    return { error: `⚠️ El episodio T${newSeason}E${newEp} aún no se ha estrenado (estreno: ${fmtDate(ne.air_date)})` };
+  }
+
   if (!isSeasonFinished) {
     let newNextEp = `T${newSeason}E${newEp}`;
     if (ne && ne.season_number === newSeason && ne.episode_number === newEp && ne.air_date) {
