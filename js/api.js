@@ -98,9 +98,13 @@ async function tmdbSeason(showId, seasonNum) {
 }
 
 async function getShowDetail(show) {
-  const basic = show.tmdb || await tmdbSearch(show.title);
-  if (!basic) return null; if (!show.tmdb) show.tmdb = basic;
-  return await tmdbDetail(basic.id);
+  if (show.tmdb && show.tmdb.id) return await tmdbDetail(show.tmdb.id);
+  const basic = await tmdbSearch(show.title);
+  if (basic && basic.id) {
+    show.tmdb = basic;
+    return await tmdbDetail(basic.id);
+  }
+  return null;
 }
 
 function tmdbRating(d) { if (!d) return null; const v = d.vote_average; if (!v || v === 0) return null; return parseFloat(v.toFixed(1)) }

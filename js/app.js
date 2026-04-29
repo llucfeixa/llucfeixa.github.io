@@ -730,30 +730,40 @@ async function openEdit(id) {
   document.getElementById('dupWarning').style.display = 'none'; document.getElementById('deleteBtn').style.display = 'block';
   document.getElementById('editOverlay').classList.add('open');
   
-  // Restringir estados si la serie es futura (solo puede ser "waiting")
-  const isFuture = (!show.seasons || !show.seasons.length) && show.nextEp && show.nextEp.includes('(') && parseDate(show.nextEp) > new Date();
-  // Solo permitir "Finalizada" si la serie ha terminado oficialmente en TMDB
-  const isEnded = editTmdbDetail && (editTmdbDetail.status === 'Ended' || editTmdbDetail.status === 'Canceled');
-
-  const statusSelect = document.getElementById('editStatus');
-  Array.from(statusSelect.options).forEach(opt => {
-    if (isFuture && opt.value !== 'waiting') {
-      opt.disabled = true;
-      opt.style.color = 'var(--muted)';
-    } else if (opt.value === 'done' && !isEnded) {
-      opt.disabled = true;
-      opt.style.color = 'var(--muted)';
-    } else {
-      opt.disabled = false;
-      opt.style.color = '';
-    }
-  });
-  if (isFuture) statusSelect.value = 'waiting';
-  // Si estaba en "Finalizada" pero la serie ya no lo es (p.ej. renovada), forzamos "Esperando"
-  if (statusSelect.value === 'done' && !isEnded) statusSelect.value = 'waiting';
   togglePickerGroup();
   document.getElementById('pickerLoading').style.display = 'flex'; document.getElementById('pickerMain').style.display = 'none';
   editTmdbDetail = await getShowDetail(show);
+  
+  // Escenarios basados en tus reglas:
+  const tmdbStat = (editTmdbDetail && editTmdbDetail.status) ? editTmdbDetail.status.toLowerCase() : '';
+  const ne = editTmdbDetail ? editTmdbDetail.next_episode_to_air : null;
+  const isFutureEp1 = ne && ne.episode_number === 1 && parseDate(`T${ne.season_number}E${ne.episode_number} (${fmtDate(ne.air_date)})`) > new Date();
+  
+  const isEnded = tmdbStat.includes('end') || tmdbStat.includes('cancel');
+  const isFuture = (!show.seasons || !show.seasons.length) && isFutureEp1;
+  const isAiring = ne && !isFutureEp1; 
+  const isWaitingSeason = isFutureEp1 || (editTmdbDetail && !ne && !isEnded);
+
+  const statusSelect = document.getElementById('editStatus');
+  Array.from(statusSelect.options).forEach(opt => {
+    const val = opt.value;
+    let can = true;
+    if (isFuture) can = (val === 'waiting');
+    else if (isEnded) can = (val !== 'waiting');
+    else if (isAiring) can = (val === 'active' || val === 'pending');
+    else if (isWaitingSeason) can = (val !== 'done');
+    
+    opt.disabled = !can;
+    opt.style.color = !can ? 'var(--muted)' : '';
+  });
+  
+  if (statusSelect.selectedOptions[0].disabled) {
+    if (isFuture) statusSelect.value = 'waiting';
+    else if (isEnded) statusSelect.value = 'done';
+    else if (isAiring) statusSelect.value = 'active';
+    else statusSelect.value = 'waiting';
+  }
+  
   togglePickerGroup();
   document.getElementById('pickerLoading').style.display = 'none'; document.getElementById('pickerMain').style.display = 'block';
   await buildPickerOptions(editTmdbDetail);
