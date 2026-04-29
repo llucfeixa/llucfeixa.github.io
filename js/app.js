@@ -674,9 +674,16 @@ async function onPickerSeasonChange() {
   for (let e = 1; e <= epCount; e++) {
     let isLocked = false;
     if (seaDetail && seaDetail.episodes) {
+      // Regla Episodio 1: Si el primer capítulo no ha salido, no se puede seleccionar
+      if (e === 1) {
+        const current = seaDetail.episodes.find(x => x.episode_number === 1);
+        if (current && current.air_date && current.air_date > today) isLocked = true;
+      }
+      
       const prev = seaDetail.episodes.find(x => x.episode_number === e - 1);
       if (prev && prev.air_date && prev.air_date > today) isLocked = true;
-      // También bloqueamos si el propio episodio es muy lejano en el futuro (más de 1 después del último aireado)
+      
+      // También bloqueamos si el propio episodio es muy lejano en el futuro
       const current = seaDetail.episodes.find(x => x.episode_number === e);
       if (current && e > 1) {
         const twoBack = seaDetail.episodes.find(x => x.episode_number === e - 2);
