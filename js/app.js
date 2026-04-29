@@ -883,18 +883,31 @@ async function init() {
 async function syncTMDBData() {
   let changesMade = false;
   for (const show of getAllShows()) {
-    if (show.status === 'pending') continue;
-    if (!show.tmdb) { const t = await tmdbSearch(show.title); if (t) { show.tmdb = t; changesMade = true; } }
+    if (!show.tmdb) {
+      const t = await tmdbSearch(show.title);
+      if (t) { show.tmdb = t; changesMade = true; }
+    }
     if (show.tmdb) {
       const d = await tmdbDetail(show.tmdb.id);
       if (d) {
-        if (!show.tmdb.number_of_episodes || show.tmdb.number_of_episodes !== d.number_of_episodes) {
-          show.tmdb.number_of_episodes = d.number_of_episodes;
-          show.tmdb.number_of_seasons = d.number_of_seasons;
-          changesMade = true;
+        // 1. Update main rating
+        const r = tmdbRating(d);
+        if (show.rating !== r) { show.rating = r; changesMade = true; }
+
+        // 2. Update TMDB metadata fields
+        const fields = ['poster_path', 'backdrop_path', 'overview', 'first_air_date', 'number_of_seasons', 'number_of_episodes'];
+        fields.forEach(f => {
+          if (show.tmdb[f] !== d[f]) {
+            show.tmdb[f] = d[f];
+            changesMade = true;
+          }
+        });
+
+        // 3. Auto-correct status/progression (only if not pending)
+        if (show.status !== 'pending') {
+          const c = await autoCorrectStatus(show, d);
+          if (c) changesMade = true;
         }
-        let r = tmdbRating(d); if (r && !show.rating) { show.rating = r; changesMade = true; }
-        const c = await autoCorrectStatus(show, d); if (c) changesMade = true;
       }
       await new Promise(res => setTimeout(res, 150));
     }

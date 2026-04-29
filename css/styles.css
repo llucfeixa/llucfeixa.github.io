@@ -1220,13 +1220,26 @@ h3 {
 /* NEW STYLES */
 .genre-filters {
   display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
-  padding: 0.5rem 2rem 1rem;
-  scrollbar-width: none;
+  gap: 0.6rem;
+  padding: 0.8rem 1.5rem;
   border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  justify-content: center;
 }
-.genre-filters::-webkit-scrollbar { display: none; }
+
+@media (max-width: 768px) {
+  .genre-filters {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding: 0.8rem 1.2rem 1.2rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .genre-filters::-webkit-scrollbar {
+    display: none;
+  }
+}
 
 .genre-tag {
   padding: 0.35rem 0.8rem;
@@ -1287,8 +1300,17 @@ h3 {
 
 .similar-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  gap: 0.6rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.8rem;
+}
+
+@media (max-width: 480px) and (orientation: portrait) {
+  .similar-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .similar-grid > .card:nth-child(4) {
+    display: none;
+  }
 }
 
 .trailer-btn {
