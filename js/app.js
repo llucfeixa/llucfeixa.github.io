@@ -89,32 +89,42 @@ function createCard(show) {
 function calculateProgress(show) {
   if (show.status === 'done') return 100;
   if (!show.seasons || !show.seasons.length) return 0;
-  if (!show.tmdb || !show.tmdb.number_of_episodes) {
-    // Fallback if no episode count: use seasons (rough)
-    const totalSeasons = show.tmdb && show.tmdb.number_of_seasons ? show.tmdb.number_of_seasons : show.seasons.length + 1;
-    return Math.min(95, (show.seasons.length / totalSeasons) * 100);
-  }
+  if (!show.tmdb || !show.tmdb.number_of_episodes) return 0;
 
   const totalEps = show.tmdb.number_of_episodes;
   let watchedEps = 0;
+  const tmdbSeasons = show.tmdb.seasons || [];
 
-  // Estimate watched episodes
+  // Agrupamos por temporada para no contar de más
+  const perSeason = {};
   show.seasons.forEach(tag => {
     const p = parseEp(tag);
-    if (p) {
-      if (p.e === null) {
-        // We need season episode counts for accuracy, but we'll estimate 10 eps per season if missing
-        watchedEps += 10;
-      } else {
-        watchedEps += p.e;
+    if (!p) return;
+    if (p.e === null) {
+      perSeason[p.s] = 'all';
+    } else {
+      if (perSeason[p.s] !== 'all') {
+        perSeason[p.s] = Math.max(perSeason[p.s] || 0, p.e);
       }
     }
   });
 
-  // If we have total episodes, ensure we don't exceed it but also that 
-  // 'active' shows don't look 100% unless they really are (status should be done then)
+  Object.keys(perSeason).forEach(sNum => {
+    const val = perSeason[sNum];
+    const sInt = parseInt(sNum);
+    const sInfo = tmdbSeasons.find(x => x.season_number === sInt);
+    const count = sInfo ? sInfo.episode_count : 10;
+
+    if (val === 'all') {
+      watchedEps += count;
+    } else {
+      // Si estamos en el episodio X, hemos completado X - 1
+      watchedEps += Math.max(0, val - 1);
+    }
+  });
+
   let percent = (watchedEps / totalEps) * 100;
-  return Math.min(95, percent);
+  return Math.min(98, percent);
 }
 
 function renderSections() {
@@ -645,13 +655,47 @@ function resetEpSelect() {
   eSel.innerHTML = '<option value="">— Episodio —</option><option value="all">✅ Temporada completa</option>';
   eSel.disabled = true;
 }
-function onPickerSeasonChange() {
+async function onPickerSeasonChange() {
   const sVal = document.getElementById('pickerSeason').value; if (!sVal) { resetEpSelect(); return; }
   const sNum = parseInt(sVal); const eSel = document.getElementById('pickerEp');
-  let epCount = null;
-  if (editTmdbDetail && editTmdbDetail.seasons) { const s = editTmdbDetail.seasons.find(x => x.season_number === sNum); if (s) epCount = s.episode_count; }
+  eSel.innerHTML = '<option value="">⏳ Cargando episodios...</option>'; eSel.disabled = true;
+
+  let epCount = 30;
+  let seaDetail = null;
+  if (editTmdbDetail) {
+    const s = editTmdbDetail.seasons.find(x => x.season_number === sNum);
+    if (s) epCount = s.episode_count;
+    seaDetail = await tmdbSeason(editTmdbDetail.id, sNum);
+  }
+
   eSel.innerHTML = '<option value="">— Episodio —</option><option value="all">✅ Temporada completa</option>';
-  const max = epCount || 30; for (let e = 1; e <= max; e++)eSel.innerHTML += `<option value="${e}">Episodio ${e}</option>`;
+  const today = new Date().toISOString().split('T')[0];
+
+  for (let e = 1; e <= epCount; e++) {
+    let isLocked = false;
+    if (seaDetail && seaDetail.episodes) {
+      const prev = seaDetail.episodes.find(x => x.episode_number === e - 1);
+      if (prev && prev.air_date && prev.air_date > today) isLocked = true;
+      // También bloqueamos si el propio episodio es muy lejano en el futuro (más de 1 después del último aireado)
+      const current = seaDetail.episodes.find(x => x.episode_number === e);
+      if (current && e > 1) {
+        const twoBack = seaDetail.episodes.find(x => x.episode_number === e - 2);
+        if (twoBack && twoBack.air_date && twoBack.air_date > today) isLocked = true;
+      }
+    }
+    const label = `Episodio ${e}${isLocked ? ' (No estrenado 🔒)' : ''}`;
+    eSel.innerHTML += `<option value="${e}" ${isLocked ? 'disabled style="color:var(--muted)"' : ''}>${label}</option>`;
+  }
+
+  // Bloquear también "Temporada completa" si el último episodio no ha salido
+  if (seaDetail && seaDetail.episodes && seaDetail.episodes.length) {
+    const lastEp = seaDetail.episodes[seaDetail.episodes.length - 1];
+    if (lastEp.air_date && lastEp.air_date > today) {
+      const optAll = eSel.querySelector('option[value="all"]');
+      if (optAll) { optAll.disabled = true; optAll.style.color = 'var(--muted)'; optAll.textContent += ' 🔒'; }
+    }
+  }
+
   eSel.disabled = false;
 }
 
@@ -708,6 +752,8 @@ async function saveShow() {
   const ratingRaw = document.getElementById('editRating').value;
   const rating = ratingRaw ? parseFloat(ratingRaw) : (editTmdbDetail ? tmdbRating(editTmdbDetail) : null);
   let status = document.getElementById('editStatus').value;
+  let nextEp = null;
+
   if (status === 'active') {
     const sVal = document.getElementById('pickerSeason').value;
     const eVal = document.getElementById('pickerEp').value;
@@ -721,27 +767,22 @@ async function saveShow() {
     } else {
       editSeasons = [];
     }
-  } else if (status === 'pending') {
-    editSeasons = [];
-  }
-  if (editTmdbDetail && editSeasons.length) { const inf = inferStatus(editSeasons, editTmdbDetail, status); if (inf !== status) { status = inf; document.getElementById('editStatus').value = status; } }
-  if (status === 'done' && editTmdbDetail && editTmdbDetail.seasons) {
-    const realSeasons = editTmdbDetail.seasons.filter(s => s.season_number > 0 && s.episode_count > 0);
-    editSeasons = realSeasons.map(s => `T${s.season_number}`);
-  }
-  let nextEp = null;
-  if (status === 'waiting' && editTmdbDetail) {
-    if (editTmdbDetail.seasons) {
-      let maxSeasonToMark = 999;
-      if (editTmdbDetail.next_episode_to_air) {
-        maxSeasonToMark = editTmdbDetail.next_episode_to_air.season_number - 1;
-      }
-      const realSeasons = editTmdbDetail.seasons.filter(s => s.season_number > 0 && s.episode_count > 0 && s.season_number <= maxSeasonToMark);
-      editSeasons = realSeasons.map(s => `T${s.season_number}`);
+  } else if (status === 'waiting' || status === 'pending') {
+    if (status === 'waiting' && editSeasons.length === 0 && editTmdbDetail) {
+      let maxMark = 999;
+      const ne = editTmdbDetail.next_episode_to_air;
+      if (ne) maxMark = ne.season_number - 1;
+      const real = (editTmdbDetail.seasons || []).filter(s => s.season_number > 0 && s.episode_count > 0 && s.season_number <= maxMark);
+      editSeasons = real.map(s => `T${s.season_number}`);
     }
-    const ne = editTmdbDetail.next_episode_to_air;
-    if (ne && ne.air_date) nextEp = `T${ne.season_number} (${fmtDate(ne.air_date)})`;
-    else { const p = editSeasons.length ? parseEp(editSeasons[editSeasons.length - 1]) : null; nextEp = `T${p ? (p.s + 1) : 1}`; }
+    const ne = editTmdbDetail ? editTmdbDetail.next_episode_to_air : null;
+    if (ne && ne.air_date) {
+      nextEp = `T${ne.season_number} (${fmtDate(ne.air_date)})`;
+    } else {
+      const p = editSeasons.length ? parseEp(editSeasons[editSeasons.length - 1]) : null;
+      if (!p) nextEp = 'T1'; 
+      else nextEp = `T${p.s + 1}`;
+    }
   }
   if (status === 'active') {
     if (editingId) {
@@ -759,12 +800,29 @@ async function saveShow() {
         editSeasons = ['T1E1'];
       }
     }
+    
+    // Añadir fecha si es hoy o futuro al guardar desde el editor
+    if (nextEp && nextEp.includes('E')) {
+      const p = parseEp(nextEp);
+      if (p && editTmdbDetail) {
+        const seaDetail = await tmdbSeason(editTmdbDetail.id, p.s);
+        if (seaDetail && seaDetail.episodes) {
+          const epInfo = seaDetail.episodes.find(x => x.episode_number === p.e);
+          if (epInfo && epInfo.air_date) {
+            const today = new Date().toISOString().split('T')[0];
+            if (epInfo.air_date >= today) {
+              nextEp = `T${p.s}E${p.e} (${fmtDate(epInfo.air_date)})`;
+            }
+          }
+        }
+      }
+    }
   }
   if (editingId) {
     const cat = findCat(editingId);
     const idx = DB[cat].findIndex(s => s.id === editingId);
     const prev = DB[cat][idx];
-    const finalSeasons = status === 'done' ? [...editSeasons] : [...editSeasons]; 
+    const finalSeasons = status === 'done' ? [...editSeasons] : [...editSeasons];
     const updated = { ...prev, title, rating, status, seasons: finalSeasons, nextEp };
     if (status === cat) DB[cat][idx] = updated;
     else { DB[cat].splice(idx, 1); DB[status].push(updated); }
