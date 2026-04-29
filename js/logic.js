@@ -4,19 +4,10 @@ async function computeAdvance(show, detail) {
   const last = seasons.length ? seasons[seasons.length - 1] : null;
   const parsed = last ? parseEp(last) : null;
 
-  let newSeason = 1, newEp = 1;
-  let baseSeasons = [];
-  if (parsed) {
-    if (parsed.e === null) {
-      newSeason = parsed.s + 1;
-      newEp = 1;
-      baseSeasons = seasons;
-    } else {
-      newSeason = parsed.s;
-      newEp = parsed.e + 1;
-      baseSeasons = seasons.slice(0, -1);
-    }
-  }
+  const nextEpStr = show.nextEp || (parsed ? `T${parsed.s}E${parsed.e}` : 'T1E1');
+  const pNext = parseEp(nextEpStr) || { s: 1, e: 1 };
+  const newSeason = pNext.s;
+  const newEp = pNext.e;
 
   const tmdbSeasons = (detail && detail.seasons || []).filter(s => s.season_number > 0 && s.episode_count > 0);
   const curSeaTmdb = tmdbSeasons.find(s => s.season_number === newSeason);
@@ -24,33 +15,43 @@ async function computeAdvance(show, detail) {
   const ne = detail ? detail.next_episode_to_air : null;
   const tmdbSt = detail ? detail.status : null;
 
-  let isSeasonFinished = (totalEps !== null && newEp > totalEps);
+  let isSeasonFinished = (totalEps !== null && newEp >= totalEps);
   if (ne && ne.season_number === newSeason && ne.episode_number > newEp) isSeasonFinished = false;
 
+  const seaDetail = (detail && detail.id) ? await tmdbSeason(detail.id, newSeason) : null;
+  const targetEpInfo = (seaDetail && seaDetail.episodes) ? seaDetail.episodes.find(e => e.episode_number === newEp) : null;
+  const targetDate = targetEpInfo ? targetEpInfo.air_date : (ne && ne.season_number === newSeason && ne.episode_number === newEp ? ne.air_date : null);
+
   const today = new Date().toISOString().split('T')[0];
-  if (ne && ne.season_number === newSeason && ne.episode_number === newEp && ne.air_date > today) {
-    return { error: `⚠️ El episodio T${newSeason}E${newEp} aún no se ha estrenado (estreno: ${fmtDate(ne.air_date)})` };
+  if (targetDate && targetDate > today) {
+    return { error: `⚠️ El episodio T${newSeason}E${newEp} aún no se ha estrenado (estreno: ${fmtDate(targetDate)})` };
   }
 
   if (!isSeasonFinished) {
-    let newNextEp = `T${newSeason}E${newEp}`;
-    if (ne && ne.season_number === newSeason && ne.episode_number === newEp && ne.air_date) {
-      newNextEp += ` (${fmtDate(ne.air_date)})`;
-    }
-    return {
-      newSeasons: [...baseSeasons, `T${newSeason}E${newEp}`],
-      newNextEp,
-      newStatus: 'active',
-      toastMsg: `✅ Marcado: T${newSeason}E${newEp - 1}`
-    };
+    const nextE = newEp + 1;
+    const nextEpInfo = (seaDetail && seaDetail.episodes) ? seaDetail.episodes.find(e => e.episode_number === nextE) : null;
+    const nextDate = nextEpInfo ? nextEpInfo.air_date : (ne && ne.season_number === newSeason && ne.episode_number === nextE ? ne.air_date : null);
+
+    let newNextEp = `T${newSeason}E${nextE}`;
+    if (nextDate && nextDate >= today) newNextEp += ` (${fmtDate(nextDate)})`;
+    
+    let newSeasons = [...seasons];
+    const epStr = `T${newSeason}E${newEp}`;
+    if (!newSeasons.includes(epStr)) newSeasons.push(epStr);
+
+    return { newSeasons, newNextEp, newStatus: 'active', toastMsg: `✅ Marcado: T${newSeason}E${newEp}` };
   } else {
-    const newSeasons = [...baseSeasons, `T${newSeason}`];
+    let newSeasons = [...seasons];
+    const epStr = `T${newSeason}E${newEp}`;
+    if (!newSeasons.includes(epStr)) newSeasons.push(epStr);
+    const lastStr = `T${newSeason}`;
+    if (!newSeasons.includes(lastStr)) newSeasons.push(lastStr);
+
     const nextSeaNum = newSeason + 1;
     const nextSeaTmdb = tmdbSeasons.find(s => s.season_number === nextSeaNum);
 
     if (nextSeaTmdb) {
-      let ep1Aired = true;
-      let ep1Date = null;
+      let ep1Aired = true, ep1Date = null;
       if (ne && ne.season_number === nextSeaNum && ne.episode_number === 1) {
         ep1Aired = false;
         ep1Date = ne.air_date ? fmtDate(ne.air_date) : null;
@@ -60,7 +61,7 @@ async function computeAdvance(show, detail) {
         return { newSeasons, newNextEp, newStatus: 'waiting', toastMsg: `⏳ T${newSeason} completada → esperando T${nextSeaNum}` };
       } else {
         let newNextEp = `T${nextSeaNum}E1`;
-        if (ne && ne.season_number === nextSeaNum && ne.episode_number === 1 && ne.air_date) {
+        if (ne && ne.season_number === nextSeaNum && ne.episode_number === 1 && ne.air_date && ne.air_date >= today) {
           newNextEp += ` (${fmtDate(ne.air_date)})`;
         }
         return { newSeasons, newNextEp, newStatus: 'active', toastMsg: `✅ T${newSeason} completada → T${nextSeaNum} disponible` };

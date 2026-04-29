@@ -466,10 +466,13 @@ async function startWatching(id) {
 
 // ── DETAIL MODAL ──────────────────────────────────
 function renderModalSeasons(show) {
-  const seasons = show.seasons || [];
-  document.getElementById('modalSeasons').innerHTML = seasons.length
-    ? seasons.map((s, i) => { const cur = i === seasons.length - 1 && show.status !== 'done' && show.status !== 'pending' && show.status !== 'waiting'; const done = show.status === 'done' || show.status === 'waiting' || i < seasons.length - 1; return `<span class="season-pill ${cur ? 'current' : done ? 'done' : ''}">${s}</span>` }).join('')
-    : '<span style="color:var(--muted);font-size:0.8rem">Sin temporadas</span>';
+  const finishedSeasons = (show.seasons || []).filter(s => !s.includes('E'));
+  const currentEp = show.nextEp ? show.nextEp.split(' ')[0] : null;
+  let html = finishedSeasons.map(s => `<span class="season-pill done">${s}</span>`).join('');
+  if (currentEp && show.status === 'active') {
+    html += `<span class="season-pill current">${currentEp}</span>`;
+  }
+  document.getElementById('modalSeasons').innerHTML = html || '<span class="no-data">Sin progreso</span>';
 }
 
 async function openModal(id, isTmdbId = false) {
@@ -681,15 +684,14 @@ async function openEdit(id) {
   togglePickerGroup();
   document.getElementById('pickerLoading').style.display = 'none'; document.getElementById('pickerMain').style.display = 'block';
   await buildPickerOptions(editTmdbDetail);
-  if (editSeasons.length > 0) {
-    const last = editSeasons[editSeasons.length - 1];
-    const p = parseEp(last);
-    if (p) {
-      document.getElementById('pickerSeason').value = p.s;
-      onPickerSeasonChange();
-      if (p.e !== null) document.getElementById('pickerEp').value = p.e;
-      else document.getElementById('pickerEp').value = 'all';
-    }
+  const nextToParse = show.nextEp ? show.nextEp.split(' ')[0] : null;
+  const lastFromHist = editSeasons.length ? editSeasons[editSeasons.length - 1] : null;
+  const p = parseEp(nextToParse || lastFromHist);
+  if (p) {
+    document.getElementById('pickerSeason').value = p.s;
+    onPickerSeasonChange();
+    if (p.e !== null) document.getElementById('pickerEp').value = p.e;
+    else document.getElementById('pickerEp').value = 'all';
   } else {
     document.getElementById('pickerSeason').value = '';
     resetEpSelect();
@@ -762,7 +764,7 @@ async function saveShow() {
     const cat = findCat(editingId);
     const idx = DB[cat].findIndex(s => s.id === editingId);
     const prev = DB[cat][idx];
-    const finalSeasons = status === 'done' ? [...editSeasons] : [...editSeasons]; // editSeasons is already updated above
+    const finalSeasons = status === 'done' ? [...editSeasons] : [...editSeasons]; 
     const updated = { ...prev, title, rating, status, seasons: finalSeasons, nextEp };
     if (status === cat) DB[cat][idx] = updated;
     else { DB[cat].splice(idx, 1); DB[status].push(updated); }
