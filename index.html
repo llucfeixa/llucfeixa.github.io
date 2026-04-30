@@ -68,6 +68,7 @@
   <div class="nav-tabs">
     <button class="nav-tab active" id="mySeriesTab" onclick="switchView('my-series')">Mis Series</button>
     <button class="nav-tab" id="discoverTab" onclick="switchView('discover')">Descubrir</button>
+    <button class="nav-tab" id="calendarTab" onclick="switchView('calendar')">Calendario</button>
   </div>
   <div id="mySeriesView">
     <div class="stats-bar" id="statsBar"></div>
@@ -131,7 +132,20 @@
     </div>
   </div>
 
-  <div id="calendarView" style="display:none"></div>
+  <div id="calendarView" style="display:none">
+    <div class="sections">
+      <div class="section">
+        <div class="section-header">
+          <div class="section-dot" style="background:var(--green)"></div>
+          <div class="section-title" style="color:var(--green)">Próximos Estrenos</div>
+          <div class="section-line"></div>
+        </div>
+        <div id="calendarGrid" class="calendar-grid">
+          <!-- Calendar items will be injected here -->
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- DETAIL MODAL -->
   <div class="modal-overlay" id="modalOverlay">

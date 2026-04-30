@@ -157,22 +157,31 @@ function switchView(view) {
   currentView = view;
   const myView = document.getElementById('mySeriesView');
   const discView = document.getElementById('discoverView');
+  const calView = document.getElementById('calendarView');
   const myTab = document.getElementById('mySeriesTab');
   const discTab = document.getElementById('discoverTab');
+  const calTab = document.getElementById('calendarTab');
+
+  myView.style.display = 'none';
+  discView.style.display = 'none';
+  calView.style.display = 'none';
+  myTab.classList.remove('active');
+  discTab.classList.remove('active');
+  calTab.classList.remove('active');
 
   if (view === 'my-series') {
     myView.style.display = 'block';
-    discView.style.display = 'none';
     myTab.classList.add('active');
-    discTab.classList.remove('active');
     renderSections();
     updateStats();
-  } else {
-    myView.style.display = 'none';
+  } else if (view === 'discover') {
     discView.style.display = 'block';
-    myTab.classList.remove('active');
     discTab.classList.add('active');
     renderDiscover();
+  } else if (view === 'calendar') {
+    calView.style.display = 'block';
+    calTab.classList.add('active');
+    renderCalendar();
   }
 }
 
@@ -385,23 +394,37 @@ function filterByGenre(id) {
 
 async function renderCalendar() {
   const grid = document.getElementById('calendarGrid');
+  if (!grid) return;
+  
   grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Calculando estrenos...</div>';
 
-  const activeShows = DB.active;
+  const relevantShows = [...DB.active, ...DB.waiting];
   const releases = [];
 
-  for (const show of activeShows) {
+  // Use a map to track processed IDs to avoid duplicates if a show is in multiple categories
+  const processedIds = new Set();
+
+  for (const show of relevantShows) {
+    if (processedIds.has(show.id)) continue;
+    processedIds.add(show.id);
+
     const detail = await getShowDetail(show);
     if (detail && detail.next_episode_to_air) {
       const ne = detail.next_episode_to_air;
-      releases.push({ show, ep: ne, date: new Date(ne.air_date) });
+      releases.push({ 
+        show, 
+        ep: ne, 
+        date: new Date(ne.air_date),
+        airDateStr: ne.air_date
+      });
     }
   }
 
+  // Sort by date (asc)
   releases.sort((a, b) => a.date - b.date);
 
   if (!releases.length) {
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No hay estrenos próximos programados para tus series en curso.</div>';
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No hay estrenos próximos programados para tus series.</div>';
     return;
   }
 
@@ -410,14 +433,14 @@ async function renderCalendar() {
     const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
     return `<div class="calendar-card">
       <div class="cal-date">
-        <div class="cal-day">${d.getDate()}</div>
-        <div class="cal-month">${months[d.getMonth()]}</div>
+        <div class="cal-day">${d.getUTCDate()}</div>
+        <div class="cal-month">${months[d.getUTCMonth()]}</div>
       </div>
       <div class="cal-info">
         <div class="cal-title">${r.show.title}</div>
-        <div class="cal-ep">T${r.ep.season_number}E${r.ep.episode_number} · ${r.ep.name || 'Sin título'}</div>
+        <div class="cal-ep">T${r.ep.season_number}E${r.ep.episode_number} · ${r.ep.name || 'Próximo episodio'}</div>
       </div>
-      <button class="btn btn-ghost" style="padding:0.3rem 0.6rem;font-size:0.7rem" onclick="openModal('${r.show.id}')">Ver</button>
+      <button class="cal-btn" onclick="openModal('${r.show.id}')">Ver</button>
     </div>`;
   }).join('');
 }
