@@ -58,10 +58,12 @@ function createCard(show) {
   <div class="list-right">
     <span class="badge ${cfg.badge}">${cfg.label}</span>
     <div class="list-actions">
-      ${hasNext ? `<button class="list-next-btn" onclick="event.stopPropagation();quickAdvance('${id}')">▶ Ya lo vi</button>` : ''}
-      ${isPending ? `<button class="list-next-btn" onclick="event.stopPropagation();startWatching('${id}')">▶ Empezar</button>` : ''}
-      <button class="list-action-btn" onclick="event.stopPropagation();openEdit('${id}')">✏️</button>
-      <button class="list-action-btn del" onclick="event.stopPropagation();confirmDelete('${id}')">🗑</button>
+      ${hasNext && !isPublicView ? `<button class="list-next-btn" onclick="event.stopPropagation();quickAdvance('${id}')">▶ Ya lo vi</button>` : ''}
+      ${isPending && !isPublicView ? `<button class="list-next-btn" onclick="event.stopPropagation();startWatching('${id}')">▶ Empezar</button>` : ''}
+      ${!isPublicView ? `
+        <button class="list-action-btn" onclick="event.stopPropagation();openEdit('${id}')">✏️</button>
+        <button class="list-action-btn del" onclick="event.stopPropagation();confirmDelete('${id}')">🗑</button>
+      ` : ''}
     </div>
   </div>
 </div>`;
@@ -71,13 +73,15 @@ function createCard(show) {
 <div class="card-poster" onclick="openModal('${id}')">
   ${poster ? `<img src="${poster}" alt="${show.title}" loading="lazy">` : `<div class="card-poster-placeholder"><span>📺</span><p>${show.title}</p></div>`}
   ${rating ? `<div class="card-rating">★${rating}</div>` : ''}
-  ${hasNext ? `<button class="card-next-btn" onclick="event.stopPropagation();quickAdvance('${id}')">▶ Marcar ${show.nextEp.split(' ')[0]}</button>` : ''}
-  ${isPending ? `<button class="card-next-btn" onclick="event.stopPropagation();startWatching('${id}')">▶ Empezar a ver</button>` : ''}
+  ${hasNext && !isPublicView ? `<button class="card-next-btn" onclick="event.stopPropagation();quickAdvance('${id}')">▶ Marcar ${show.nextEp.split(' ')[0]}</button>` : ''}
+  ${isPending && !isPublicView ? `<button class="card-next-btn" onclick="event.stopPropagation();startWatching('${id}')">▶ Empezar a ver</button>` : ''}
 </div>
+${!isPublicView ? `
 <div class="card-actions">
   <button class="card-action-btn" onclick="event.stopPropagation();openEdit('${id}')">✏️</button>
   <button class="card-action-btn del" onclick="event.stopPropagation();confirmDelete('${id}')">🗑</button>
 </div>
+` : ''}
 <div class="card-body" onclick="openModal('${id}')">
   <div class="card-title">${show.title}</div>
   <div class="card-meta"><span class="card-ep">${show.nextEp || last || 'Sin empezar'}</span><div class="card-status-dot" style="background:${cfg.dot}"></div></div>
@@ -161,13 +165,17 @@ function switchView(view) {
   const myTab = document.getElementById('mySeriesTab');
   const discTab = document.getElementById('discoverTab');
   const calTab = document.getElementById('calendarTab');
+  const friendsTab = document.getElementById('friendsTab');
+  const friendsView = document.getElementById('friendsView');
 
   myView.style.display = 'none';
   discView.style.display = 'none';
   calView.style.display = 'none';
+  friendsView.style.display = 'none';
   myTab.classList.remove('active');
   discTab.classList.remove('active');
   calTab.classList.remove('active');
+  friendsTab.classList.remove('active');
 
   if (view === 'my-series') {
     myView.style.display = 'block';
@@ -182,6 +190,10 @@ function switchView(view) {
     calView.style.display = 'block';
     calTab.classList.add('active');
     renderCalendar();
+  } else if (view === 'friends') {
+    friendsView.style.display = 'block';
+    friendsTab.classList.add('active');
+    renderFriendsList();
   }
 }
 
@@ -428,6 +440,8 @@ async function renderCalendar() {
     return;
   }
 
+
+
   grid.innerHTML = releases.map(r => {
     const d = r.date;
     const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
@@ -448,6 +462,44 @@ async function renderCalendar() {
 function updateStats() {
   const bar = document.getElementById('statsBar');
   if (!bar) return;
+
+  if (isPublicView) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const publicUid = urlParams.get('u');
+    const isFollowing = userFollowing.includes(publicUid);
+    const followBtnHtml = (currentUser && publicUid !== currentUser.uid) ? 
+      `<button class="btn ${isFollowing ? 'btn-ghost' : 'btn-primary'}" style="font-size:0.75rem;padding:0.4rem 0.8rem" onclick="toggleFollow('${publicUid}')">${isFollowing ? '✓ Siguiendo' : '+ Seguir'}</button>` : '';
+
+    // Hide discover and calendar in public view
+    if (document.getElementById('discoverTab')) document.getElementById('discoverTab').style.display = 'none';
+    if (document.getElementById('calendarTab')) document.getElementById('calendarTab').style.display = 'none';
+
+    bar.innerHTML = `<div class="public-banner-wrap">
+      <div class="public-banner-text">Estás viendo la biblioteca de <strong>${publicUserName}</strong></div>
+      ${followBtnHtml}
+      <button class="btn btn-primary" style="font-size:0.75rem;padding:0.4rem 0.8rem" onclick="window.location.href=window.location.pathname">Volver a mi lista</button>
+    </div>`;
+    return;
+  }
+  
+  // Show all tabs and settings buttons if logged in
+  if (currentUser) {
+    if (document.getElementById('discoverTab')) document.getElementById('discoverTab').style.display = 'block';
+    if (document.getElementById('calendarTab')) document.getElementById('calendarTab').style.display = 'block';
+    if (document.getElementById('friendsTab')) document.getElementById('friendsTab').style.display = 'block';
+    if (document.getElementById('settingsBtn')) document.getElementById('settingsBtn').style.display = 'block';
+
+    if (!document.getElementById('headerShareBtn')) {
+      const h = document.querySelector('.header');
+      const btn = document.createElement('button');
+      btn.id = 'headerShareBtn';
+      btn.className = 'btn btn-ghost';
+      btn.style = 'position:absolute;left:1.5rem;top:1.5rem;font-size:0.85rem;padding:0.5rem 1rem';
+      btn.innerHTML = '🔗 Compartir';
+      btn.onclick = openShareModal;
+      h.appendChild(btn);
+    }
+  }
 
   let totalEps = 0;
   getAllShows().forEach(s => {
@@ -470,6 +522,19 @@ function updateStats() {
 }
 
 // ── QUICK ADVANCE ─────────────────────────────────
+function confirmDelete(id) {
+  const show = findShow(id);
+  if (!show) return;
+  openConfirm(
+    "¿Eliminar serie?",
+    `¿Estás seguro de que quieres eliminar "${show.title}" de tu biblioteca?`,
+    async () => {
+      await deleteShow(id);
+    },
+    "Eliminar"
+  );
+}
+
 async function quickAdvance(id) {
   const show = findShow(id); if (!show) return;
   const detail = await getShowDetail(show);
@@ -538,13 +603,16 @@ async function openModal(id, isTmdbId = false) {
   document.getElementById('modalSimilarWrap').style.display = 'none';
   document.getElementById('modalPlatforms').innerHTML = '';
 
-  if (inList) {
+  if (inList && !isPublicView) {
     document.getElementById('modalEditBtn').style.display = 'block';
     document.getElementById('modalAddBtn').style.display = 'none';
     document.getElementById('modalEditBtn').onclick = () => { closeModal(); openEdit(show.id) };
-  } else {
+  } else if (!inList && !isPublicView) {
     document.getElementById('modalEditBtn').style.display = 'none';
     document.getElementById('modalAddBtn').style.display = 'block';
+  } else {
+    document.getElementById('modalEditBtn').style.display = 'none';
+    document.getElementById('modalAddBtn').style.display = 'none';
   }
 
   renderModalSeasons(show);
@@ -553,13 +621,13 @@ async function openModal(id, isTmdbId = false) {
   const nb = document.getElementById('modalNextEpBlock');
   const sb = document.getElementById('modalStartBlock');
 
-  if (hasNext) {
+  if (hasNext && !isPublicView) {
     nb.style.display = 'block';
     document.getElementById('modalNextEpVal').textContent = show.nextEp;
     document.getElementById('advanceBtn').onclick = () => advanceFromModal(show.id);
   } else nb.style.display = 'none';
 
-  if (isPending) {
+  if (isPending && !isPublicView) {
     sb.style.display = 'block';
     document.getElementById('startBtn').onclick = async () => {
       await startWatching(show.id);
@@ -921,32 +989,6 @@ async function deleteShow(id) {
     alert("Error en deleteShow: " + e.message);
   }
 }
-let showToDelete = null;
-
-function closeConfirmModal() {
-  const overlay = document.getElementById('confirmOverlay');
-  if (overlay) {
-    overlay.classList.remove('open');
-    setTimeout(() => overlay.style.display = 'none', 280);
-  }
-  showToDelete = null;
-}
-
-function confirmDelete(id) {
-  showToDelete = id;
-  const overlay = document.getElementById('confirmOverlay');
-  if (overlay) {
-    overlay.style.display = 'flex';
-    setTimeout(() => overlay.classList.add('open'), 10);
-
-    document.getElementById('confirmDeleteBtn').onclick = () => {
-      if (showToDelete) {
-        deleteShow(showToDelete);
-      }
-      closeConfirmModal();
-    };
-  }
-}
 function deleteCurrentShow() {
   if (editingId) confirmDelete(editingId);
 }
@@ -1083,3 +1125,238 @@ setInterval(async () => {
   if (n) { await saveDB(); updateStats(); renderSections(); showToast(`📺 ${n} serie${n > 1 ? 's' : ''} movida a "En curso"`); }
 }, 3600000);
 
+function openShareModal() {
+  if (!currentUser) return;
+  const url = `${window.location.origin}${window.location.pathname}?u=${currentUser.uid}`;
+  document.getElementById('shareUrl').value = url;
+  const overlay = document.getElementById('shareOverlay');
+  overlay.style.display = 'flex';
+  setTimeout(() => overlay.classList.add('open'), 10);
+}
+
+function closeShareModal() {
+  const overlay = document.getElementById('shareOverlay');
+  overlay.classList.remove('open');
+  setTimeout(() => overlay.style.display = 'none', 300);
+}
+
+function copyShareLink() {
+  const input = document.getElementById('shareUrl');
+  input.select();
+  document.execCommand('copy');
+  showToast('📋 ¡Enlace copiado al portapapeles!');
+}
+
+// ── FRIENDS & SETTINGS ────────────────────────────
+async function toggleFollow(uid) {
+  if (!currentUser) { openLogin(); return; }
+  if (userFollowing.includes(uid)) {
+    await unfollowUser(uid);
+    showToast("Dejaste de seguir a este usuario");
+  } else {
+    await followUser(uid);
+    showToast("¡Ahora sigues a este usuario!");
+  }
+  updateStats();
+}
+
+async function renderFriendsList() {
+  const grid = document.getElementById('friendsGrid');
+  if (!grid) return;
+
+  // Update counter/header
+  const searchBox = document.querySelector('.user-search-box');
+  if (isPublicView) {
+    if (searchBox) searchBox.style.display = 'none';
+  } else {
+    if (searchBox) searchBox.style.display = 'block';
+  }
+
+  if (!userFollowing.length) {
+    grid.innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:5rem 2rem;">
+        <div style="font-size:3rem;margin-bottom:1.5rem;opacity:0.5">👥</div>
+        <h3 style="color:var(--text);margin-bottom:0.5rem">Tu red está vacía</h3>
+        <p style="color:var(--muted);max-width:300px;margin:0 auto 2rem;font-size:0.9rem">
+          ¡Usa el buscador de arriba para encontrar a tus amigos y ver qué están viendo!
+        </p>
+      </div>`;
+    return;
+  }
+
+  let headerHtml = `<div style="grid-column:1/-1;margin-bottom:1rem;font-size:0.85rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em">
+    Sigues a ${userFollowing.length} persona${userFollowing.length > 1 ? 's' : ''}
+  </div>`;
+
+  const friendsData = [];
+  for (const uid of userFollowing) {
+    const data = await getFriendProfile(uid);
+    if (data) friendsData.push({ uid, ...data });
+  }
+
+  if (!friendsData.length) {
+    grid.innerHTML = headerHtml + '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No se pudo cargar la información de los usuarios que sigues.</div>';
+    return;
+  }
+
+  const cardsHtml = friendsData.map(f => {
+    const stats = f.DB ? `${f.DB.active.length} viendo · ${f.DB.done.length} terminadas` : 'Biblioteca privada';
+    const initial = (f.displayName || 'U').charAt(0).toUpperCase();
+    const avatarColor = getAvatarColor(f.uid);
+    return `
+      <div class="friend-card" onclick="window.location.href='?u=${f.uid}'">
+        <div class="friend-avatar" style="background:${avatarColor};border-color:transparent;color:white">${initial}</div>
+        <div class="friend-info">
+          <div class="friend-name">${f.displayName || 'Usuario'}</div>
+          <div class="friend-status">${stats}</div>
+        </div>
+        <div class="friend-unfollow" onclick="event.stopPropagation(); removeFriend('${f.uid}')" title="Dejar de seguir">✕</div>
+      </div>`;
+  }).join('');
+
+  grid.innerHTML = headerHtml + cardsHtml;
+}
+
+function getAvatarColor(uid) {
+  let hash = 0;
+  for (let i = 0; i < uid.length; i++) {
+    hash = uid.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const h = Math.abs(hash) % 360;
+  return `hsl(${h}, 45%, 55%)`;
+}
+
+function removeFriend(uid) {
+  openConfirm(
+    "¿Dejar de seguir?",
+    "¿Estás seguro de que quieres dejar de seguir a este usuario?",
+    async () => {
+      await unfollowUser(uid);
+      renderFriendsList();
+      showToast("Has dejado de seguir a este usuario");
+    },
+    "Dejar de seguir"
+  );
+}
+
+function openSettings() {
+  if (!currentUser) return;
+  document.getElementById('settingsUserName').value = currentUser.customDisplayName || currentUser.displayName || "";
+  const overlay = document.getElementById('settingsOverlay');
+  overlay.style.display = 'flex';
+  setTimeout(() => overlay.classList.add('open'), 10);
+}
+
+function closeSettings() {
+  const overlay = document.getElementById('settingsOverlay');
+  overlay.classList.remove('open');
+  setTimeout(() => overlay.style.display = 'none', 300);
+}
+
+async function saveSettings() {
+  const newName = document.getElementById('settingsUserName').value.trim();
+  if (!newName) { showToast("El nombre no puede estar vacío", "var(--red)"); return; }
+  
+  if (newName !== (currentUser.customDisplayName || currentUser.displayName)) {
+    const available = await isNameAvailable(newName);
+    if (!available) {
+      showToast("Ese nombre ya está en uso por otro usuario", "var(--red)");
+      return;
+    }
+  }
+
+  await updateProfile(newName);
+  closeSettings();
+  showToast("✅ Perfil actualizado");
+}
+
+// ── CONFIRM MODAL ─────────────────────────────────
+function openConfirm(title, msg, onOk, btnText = "Confirmar") {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent = msg;
+  const okBtn = document.getElementById('confirmOkBtn');
+  okBtn.textContent = btnText;
+  
+  // Show/hide icon based on action
+  const icon = document.getElementById('confirmIcon');
+  if (icon) icon.style.display = (title.toLowerCase().includes('eliminar')) ? 'flex' : 'none';
+
+  okBtn.onclick = () => {
+    onOk();
+    closeConfirm();
+  };
+  const overlay = document.getElementById('confirmOverlay');
+  overlay.style.display = 'flex';
+  setTimeout(() => overlay.classList.add('open'), 10);
+}
+
+function closeConfirm() {
+  const overlay = document.getElementById('confirmOverlay');
+  overlay.classList.remove('open');
+  setTimeout(() => overlay.style.display = 'none', 300);
+}
+
+// ── USER SEARCH ───────────────────────────────────
+let userSearchTimer = null;
+async function handleUserSearch() {
+  const input = document.getElementById('userSearchInput');
+  const resultsBox = document.getElementById('userSearchResults');
+  const query = input.value.trim();
+
+  clearTimeout(userSearchTimer);
+  if (query.length < 2) {
+    resultsBox.style.display = 'none';
+    return;
+  }
+
+  userSearchTimer = setTimeout(async () => {
+    resultsBox.innerHTML = '<div style="padding:1rem;text-align:center"><div class="spinner" style="margin:0 auto"></div></div>';
+    resultsBox.style.display = 'block';
+
+    const users = await searchUsers(query);
+    if (!users.length) {
+      resultsBox.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--muted)">No se encontraron usuarios</div>';
+      return;
+    }
+
+    resultsBox.innerHTML = users.map(u => {
+      const isFollowing = userFollowing.includes(u.uid);
+      const initial = (u.displayName || 'U').charAt(0).toUpperCase();
+      const avatarColor = getAvatarColor(u.uid);
+      const sub = u.DB ? `${u.DB.active.length + u.DB.done.length} series` : 'Ver perfil';
+      return `
+        <div class="search-result-item" onclick="window.location.href='?u=${u.uid}'">
+          <div class="friend-avatar" style="width:32px;height:32px;font-size:0.8rem;background:${avatarColor};border-color:transparent;color:white">${initial}</div>
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:0.9rem">${u.displayName}</div>
+            <div style="font-size:0.75rem;color:var(--muted)">${sub}</div>
+          </div>
+          <button class="btn ${isFollowing ? 'btn-ghost' : 'btn-primary'}" 
+                  style="font-size:0.7rem;padding:0.3rem 0.6rem" 
+                  onclick="event.stopPropagation(); toggleFollowFromSearch('${u.uid}')">
+            ${isFollowing ? 'Siguiendo' : '+ Seguir'}
+          </button>
+        </div>
+      `;
+    }).join('');
+  }, 400);
+}
+
+async function toggleFollowFromSearch(uid) {
+  const isFollowing = userFollowing.includes(uid);
+  if (isFollowing) await unfollowUser(uid);
+  else await followUser(uid);
+  
+  handleUserSearch(); // Refresh results
+  renderFriendsList(); // Refresh main list
+  showToast(isFollowing ? "Dejado de seguir" : "Siguiendo a usuario");
+}
+
+// Close search results when clicking outside
+document.addEventListener('click', (e) => {
+  const box = document.getElementById('userSearchResults');
+  const input = document.getElementById('userSearchInput');
+  if (box && !box.contains(e.target) && e.target !== input) {
+    box.style.display = 'none';
+  }
+});

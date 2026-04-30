@@ -117,7 +117,11 @@ h3 {
   padding: 0.5rem 1.5rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.nav-tabs::-webkit-scrollbar { display: none; }
 
 .nav-tab {
   background: none;
@@ -315,6 +319,135 @@ h3 {
 }
 
 /* CALENDAR VIEW */
+/* Social & Friends */
+.friends-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.friend-card {
+  background: var(--surface);
+  border: 1px solid var(--surface2);
+  border-radius: 12px;
+  padding: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.friend-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--purple);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+}
+
+.friend-avatar {
+  width: 50px;
+  height: 50px;
+  background: var(--surface2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: var(--purple);
+  border: 2px solid var(--purple);
+}
+
+.friend-info {
+  flex: 1;
+}
+
+.friend-name {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.friend-status {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 0.2rem;
+}
+
+.friend-unfollow {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.2s;
+  border-radius: 50%;
+}
+
+.friend-card:hover .friend-unfollow {
+  opacity: 1;
+}
+
+.friend-unfollow:hover {
+  background: rgba(226, 84, 84, 0.1);
+  color: var(--red);
+}
+
+/* User Search */
+.user-search-box {
+  position: relative;
+  margin-bottom: 2rem;
+  width: 100%;
+}
+
+.user-search-box .form-input {
+  width: 100%;
+}
+
+.search-results-overlay {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--surface2);
+  border-radius: 12px;
+  margin-top: 0.5rem;
+  z-index: 100;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  max-height: 400px;
+  overflow-y: auto;
+  animation: slideInDown 0.2s ease-out;
+}
+
+@keyframes slideInDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.search-result-item {
+  padding: 0.8rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.search-result-item:hover {
+  background: var(--surface2);
+}
+
+.search-result-item:not(:last-child) {
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -1526,5 +1659,153 @@ h3 {
   }
   .modal-hero {
     height: 180px;
+  }
+}
+
+.public-banner {
+  background: rgba(201, 168, 76, 0.1);
+  color: var(--gold);
+  padding: 0.5rem 1.2rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  border: 1px solid rgba(201, 168, 76, 0.2);
+}
+
+@media (max-width: 600px) {
+  .public-banner {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.8rem;
+  }
+}
+
+.friends-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.friend-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+  transition: all 0.22s;
+}
+
+.friend-card:hover {
+  border-color: var(--purple);
+  transform: translateY(-2px);
+  background: rgba(155, 126, 200, 0.05);
+}
+
+.friend-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--surface2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  border: 1px solid var(--border);
+  color: var(--purple);
+}
+
+.friend-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.friend-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.friend-status {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.friend-unfollow {
+  opacity: 0;
+  transition: opacity 0.2s;
+  padding: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.friend-card:hover .friend-unfollow {
+  opacity: 1;
+}
+
+.friend-unfollow:hover {
+  color: var(--red);
+}
+
+/* Mobile Optimizations for Navigation */
+@media (max-width: 600px) {
+  .nav-tabs {
+    gap: 0.8rem;
+    justify-content: center;
+    padding: 0.2rem 1rem;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav-tab {
+    font-size: 0.7rem;
+    padding: 0.6rem 0.2rem;
+    white-space: nowrap;
+  }
+  .header-content {
+    padding: 0.8rem 1rem;
+  }
+  .logo h1 {
+    font-size: 1.1rem;
+  }
+  .user-search-box {
+    margin-bottom: 1rem;
+  }
+}
+
+/* Public Profile Banner */
+.public-banner-wrap {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  justify-content: center;
+  padding: 0.5rem;
+  background: rgba(201, 168, 76, 0.05);
+  border-radius: 8px;
+}
+
+.public-banner-text {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+@media (max-width: 600px) {
+  .public-banner-wrap {
+    flex-direction: column;
+    gap: 0.8rem;
+    padding: 1rem;
+    text-align: center;
+  }
+  .public-banner-text {
+    font-size: 0.85rem;
+  }
+  .public-banner-wrap .btn {
+    width: 100%;
+    max-width: 280px;
+    justify-content: center;
   }
 }
