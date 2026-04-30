@@ -470,17 +470,25 @@ function updateStats() {
     const followBtnHtml = (currentUser && publicUid !== currentUser.uid) ? 
       `<button class="btn ${isFollowing ? 'btn-ghost' : 'btn-primary'}" style="font-size:0.75rem;padding:0.4rem 0.8rem" onclick="toggleFollow('${publicUid}')">${isFollowing ? '✓ Siguiendo' : '+ Seguir'}</button>` : '';
 
-    // Hide discover and calendar in public view
+    // Hide discover, calendar, friends and Add button in public view
     if (document.getElementById('discoverTab')) document.getElementById('discoverTab').style.display = 'none';
     if (document.getElementById('calendarTab')) document.getElementById('calendarTab').style.display = 'none';
+    if (document.getElementById('friendsTab')) document.getElementById('friendsTab').style.display = 'none';
+    if (document.getElementById('addBtn')) document.getElementById('addBtn').style.display = 'none';
 
     bar.innerHTML = `<div class="public-banner-wrap">
       <div class="public-banner-text">Estás viendo la biblioteca de <strong>${publicUserName}</strong></div>
       ${followBtnHtml}
       <button class="btn btn-primary" style="font-size:0.75rem;padding:0.4rem 0.8rem" onclick="window.location.href=window.location.pathname">Volver a mi lista</button>
     </div>`;
+    
+    // Hide share button in public view
+    if (document.getElementById('headerShareBtn')) document.getElementById('headerShareBtn').style.display = 'none';
     return;
   }
+  
+  // Show Add button in my list
+  if (document.getElementById('addBtn')) document.getElementById('addBtn').style.display = 'block';
   
   // Show all tabs and settings buttons if logged in
   if (currentUser) {
@@ -489,7 +497,8 @@ function updateStats() {
     if (document.getElementById('friendsTab')) document.getElementById('friendsTab').style.display = 'block';
     if (document.getElementById('settingsBtn')) document.getElementById('settingsBtn').style.display = 'block';
 
-    if (!document.getElementById('headerShareBtn')) {
+    const shareBtn = document.getElementById('headerShareBtn');
+    if (!shareBtn) {
       const h = document.querySelector('.header');
       const btn = document.createElement('button');
       btn.id = 'headerShareBtn';
@@ -498,7 +507,13 @@ function updateStats() {
       btn.innerHTML = '🔗 Compartir';
       btn.onclick = openShareModal;
       h.appendChild(btn);
+    } else {
+      shareBtn.style.display = 'block';
     }
+  } else {
+    // Hide share button for guests
+    if (document.getElementById('headerShareBtn')) document.getElementById('headerShareBtn').style.display = 'none';
+    if (document.getElementById('settingsBtn')) document.getElementById('settingsBtn').style.display = 'none';
   }
 
   let totalEps = 0;

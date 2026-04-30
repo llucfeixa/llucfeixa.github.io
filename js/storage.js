@@ -16,6 +16,7 @@ function logout() {
   DB = { active: [], waiting: [], pending: [], done: [] };
   if (typeof renderSections === 'function') renderSections();
   if (typeof updateStats === 'function') updateStats();
+  if (typeof switchView === 'function') switchView('my-series');
   showToast("Sesión cerrada");
 }
 
@@ -31,6 +32,7 @@ firebase.auth().onAuthStateChanged(async user => {
     if (openLoginBtn) openLoginBtn.style.display = 'none';
     if (logoutBtn) logoutBtn.style.display = 'block';
     if (loginOverlay) loginOverlay.classList.remove('open');
+    if (document.getElementById('friendsTab')) document.getElementById('friendsTab').style.display = 'block';
 
     // Load following list and custom name
     try {
@@ -60,6 +62,7 @@ firebase.auth().onAuthStateChanged(async user => {
     userFollowing = [];
     if (openLoginBtn) openLoginBtn.style.display = 'block';
     if (logoutBtn) logoutBtn.style.display = 'none';
+    if (document.getElementById('friendsTab')) document.getElementById('friendsTab').style.display = 'none';
   }
 
   // 2. Handle Data Loading (Public vs Private)
