@@ -209,6 +209,9 @@ function switchView(view) {
     updateStats();
   }
 
+  // Always update stats/banner visibility on view switch
+  updateStats();
+
   if (targetView) {
     targetView.style.display = 'block';
     targetView.classList.remove('fade-in');
@@ -484,6 +487,7 @@ function updateStats() {
   if (!bar) return;
 
   if (isPublicView) {
+    bar.style.display = ''; // Let CSS (Grid or Flex) handle it
     const urlParams = new URLSearchParams(window.location.search);
     const publicUid = urlParams.get('u');
     const isFollowing = userFollowing.includes(publicUid);
@@ -507,6 +511,13 @@ function updateStats() {
     if (document.getElementById('headerShareBtn')) document.getElementById('headerShareBtn').style.display = 'none';
     return;
   }
+
+  // Personal View: Only show stats summary in 'my-series' view
+  if (currentView !== 'my-series') {
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = '';
 
   // Show Add button in my list
   if (document.getElementById('addBtn')) document.getElementById('addBtn').style.display = 'block';
