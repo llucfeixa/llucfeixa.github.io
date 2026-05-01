@@ -12,8 +12,19 @@ function loginWithGoogle() {
 
 function logout() {
   firebase.auth().signOut();
-  localStorage.removeItem(SK); // Privacy: Clear local cache on logout
+  localStorage.removeItem(SK); 
   DB = { active: [], waiting: [], pending: [], done: [] };
+  userFollowing = [];
+  isPublicView = false;
+
+  // Clear stats UI
+  const statsView = document.getElementById('statsView');
+  if (statsView) {
+    statsView.querySelectorAll('.stats-card-val').forEach(v => v.textContent = '0');
+    const dist = document.getElementById('statsStatusDist');
+    if (dist) dist.innerHTML = '';
+  }
+
   if (typeof renderSections === 'function') renderSections();
   if (typeof updateStats === 'function') updateStats();
   if (typeof switchView === 'function') switchView('my-series');

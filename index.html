@@ -66,21 +66,24 @@
     <p>Seguimiento personal</p>
   </div>
   <div class="nav-tabs">
-    <button class="nav-tab active" id="mySeriesTab" onclick="switchView('my-series')">Mis Series</button>
-    <button class="nav-tab" id="discoverTab" onclick="switchView('discover')">Descubrir</button>
-    <button class="nav-tab" id="calendarTab" onclick="switchView('calendar')">Calendario</button>
+    <button class="nav-tab active" id="mySeriesTab" onclick="switchView('my-series')"><span class="hide-mobile">Mis </span>Series</button>
+    <button class="nav-tab" id="discoverTab" onclick="switchView('discover')">Explorar</button>
+    <button class="nav-tab" id="calendarTab" onclick="switchView('calendar')">Estrenos</button>
+    <button class="nav-tab" id="statsTab" onclick="switchView('stats')"><span class="hide-mobile">Mis </span>Stats</button>
     <button class="nav-tab" id="friendsTab" onclick="switchView('friends')" style="display:none">Siguiendo</button>
   </div>
+  <div class="stats-bar" id="statsBar"></div>
   <div id="mySeriesView">
-    <div class="stats-bar" id="statsBar"></div>
     <div class="controls">
       <div class="search-wrap"><span class="search-icon">🔍</span><input type="text" id="searchInput"
           placeholder="Buscar serie..."></div>
-      <button class="filter-btn active" data-filter="all">Todas</button>
-      <button class="filter-btn" data-filter="active">En curso</button>
-      <button class="filter-btn" data-filter="pending">Por ver</button>
-      <button class="filter-btn" data-filter="waiting">Esperando</button>
-      <button class="filter-btn" data-filter="done">Finalizadas</button>
+      <div class="filter-group">
+        <button class="filter-btn active" data-filter="all">Todas</button>
+        <button class="filter-btn" data-filter="active">En curso</button>
+        <button class="filter-btn" data-filter="pending">Por ver</button>
+        <button class="filter-btn" data-filter="waiting">Esperando</button>
+        <button class="filter-btn" data-filter="done">Finalizadas</button>
+      </div>
       <button class="add-btn" id="addBtn">＋ Añadir</button>
       <div class="view-toggle">
         <button class="view-btn active" id="gridViewBtn">▦</button>
@@ -88,6 +91,49 @@
       </div>
     </div>
     <div class="sections" id="sectionsContainer"></div>
+  </div>
+
+  <!-- STATS VIEW -->
+  <div id="statsView" style="display:none">
+    <div class="sections">
+      <div class="section">
+        <div class="section-header">
+          <div class="section-dot" style="background:var(--gold)"></div>
+          <div class="section-title" style="color:var(--gold)">Resumen de mi vida seriéfila</div>
+          <div class="section-line"></div>
+        </div>
+        
+        <div class="stats-grid">
+          <div class="stats-card">
+            <div class="stats-card-icon">🕒</div>
+            <div class="stats-card-val" id="statsTotalTime">0</div>
+            <div class="stats-card-label">Tiempo total viendo series</div>
+          </div>
+          <div class="stats-card">
+            <div class="stats-card-icon">📺</div>
+            <div class="stats-card-val" id="statsTotalEps">0</div>
+            <div class="stats-card-label">Capítulos completados</div>
+          </div>
+          <div class="stats-card">
+            <div class="stats-card-icon">⭐</div>
+            <div class="stats-card-val" id="statsAvgRating">0</div>
+            <div class="stats-card-label">Nota media de mis series</div>
+          </div>
+          <div class="stats-card">
+            <div class="stats-card-icon">🏆</div>
+            <div class="stats-card-val" id="statsCompletedCount">0</div>
+            <div class="stats-card-label">Series terminadas</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 2rem;">
+           <div class="section-header">
+            <div class="section-title" style="color:var(--muted)">Distribución de mi biblioteca</div>
+          </div>
+          <div id="statsStatusDist" class="status-dist-bar"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="discoverView" style="display:none">
@@ -230,9 +276,13 @@
           <div id="modalCast" class="cast-list"></div>
         </div>
 
-        <div id="modalSimilarWrap" style="margin-top:1.5rem;display:none">
-          <p class="modal-section-label">Si te gusta esta serie...</p>
-          <div id="modalSimilar" class="similar-grid"></div>
+        <div id="modalRecommendationsWrap" style="margin-top:1.5rem;position:relative">
+          <p class="modal-section-label">Recomendaciones para ti</p>
+          <div class="rec-container">
+            <button class="rec-nav nav-left" onclick="scrollRecs(-1)" type="button">‹</button>
+            <div id="modalRecommendations" class="rec-scroll"></div>
+            <button class="rec-nav nav-right" onclick="scrollRecs(1)" type="button">›</button>
+          </div>
         </div>
 
         <div id="modalLinkWrap" style="margin-top:1.2rem;display:flex;justify-content:center;"></div>
@@ -366,8 +416,8 @@
   <script src="js/utils.js"></script>
   <script src="js/secrets.js"></script>
   <script src="js/firebase-config.js"></script>
-  <script src="js/app.js"></script>
   <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/logic.js"></script>
 </body>

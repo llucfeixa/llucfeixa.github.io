@@ -30,7 +30,7 @@ async function tmdbTopRated(page = 1) {
   } catch (e) { return [] }
 }
 
-async function tmdbSimilar(id) {
+async function tmdbRecs(id) {
   try {
     const r = await fetch(`https://api.themoviedb.org/3/tv/${id}/recommendations?api_key=${TMDB_KEY}&language=es-ES`);
     const d = await r.json();

@@ -122,8 +122,7 @@ function calculateProgress(show) {
     if (val === 'all') {
       watchedEps += count;
     } else {
-      // Si estamos en el episodio X, hemos completado X - 1
-      watchedEps += Math.max(0, val - 1);
+      watchedEps += Math.max(0, val);
     }
   });
 
@@ -138,6 +137,7 @@ function renderSections() {
   if (!isGridView) con.classList.add('list-view'); else con.classList.remove('list-view');
   const ORDER = ['active', 'pending', 'waiting', 'done'];
   const cats = currentFilter === 'all' ? ORDER : [currentFilter];
+
   let html = '';
   for (const cat of cats) {
     let shows = (DB[cat] || []).filter(s => !q || s.title.toLowerCase().includes(q));
@@ -146,7 +146,7 @@ function renderSections() {
     const cfg = secCfg(cat);
     html += `<div class="section">
   <div class="section-header">
-    <div class="section-dot" style="background:${cfg.dot}"></div>
+    <div class="section-dot ${cat === 'active' ? 'active-pulse' : ''}" style="background:${cfg.dot}"></div>
     <div class="section-title" style="color:${cfg.dot}">${cfg.label}</div>
     <span class="section-count">${shows.length}</span>
     <div class="section-line"></div>
@@ -167,33 +167,53 @@ function switchView(view) {
   const calTab = document.getElementById('calendarTab');
   const friendsTab = document.getElementById('friendsTab');
   const friendsView = document.getElementById('friendsView');
+  const statsTab = document.getElementById('statsTab');
+  const statsView = document.getElementById('statsView');
 
-  myView.style.display = 'none';
-  discView.style.display = 'none';
-  calView.style.display = 'none';
-  friendsView.style.display = 'none';
+  const views = [myView, discView, calView, friendsView, statsView];
+  views.forEach(v => {
+    if (v) {
+      v.style.display = 'none';
+      v.classList.remove('fade-in');
+    }
+  });
+
   myTab.classList.remove('active');
   discTab.classList.remove('active');
   calTab.classList.remove('active');
+  if (statsTab) statsTab.classList.remove('active');
   friendsTab.classList.remove('active');
 
+  let targetView = null;
   if (view === 'my-series') {
-    myView.style.display = 'block';
+    targetView = myView;
     myTab.classList.add('active');
     renderSections();
     updateStats();
   } else if (view === 'discover') {
-    discView.style.display = 'block';
+    targetView = discView;
     discTab.classList.add('active');
     renderDiscover();
   } else if (view === 'calendar') {
-    calView.style.display = 'block';
+    targetView = calView;
     calTab.classList.add('active');
     renderCalendar();
   } else if (view === 'friends') {
-    friendsView.style.display = 'block';
+    targetView = friendsView;
     friendsTab.classList.add('active');
     renderFriendsList();
+  } else if (view === 'stats') {
+    targetView = statsView;
+    if (statsTab) statsTab.classList.add('active');
+    renderStatsPage();
+    updateStats();
+  }
+
+  if (targetView) {
+    targetView.style.display = 'block';
+    targetView.classList.remove('fade-in');
+    void targetView.offsetWidth; // Trigger reflow
+    targetView.classList.add('fade-in');
   }
 }
 
@@ -407,7 +427,7 @@ function filterByGenre(id) {
 async function renderCalendar() {
   const grid = document.getElementById('calendarGrid');
   if (!grid) return;
-  
+
   grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Calculando estrenos...</div>';
 
   const relevantShows = [...DB.active, ...DB.waiting];
@@ -423,9 +443,9 @@ async function renderCalendar() {
     const detail = await getShowDetail(show);
     if (detail && detail.next_episode_to_air) {
       const ne = detail.next_episode_to_air;
-      releases.push({ 
-        show, 
-        ep: ne, 
+      releases.push({
+        show,
+        ep: ne,
         date: new Date(ne.air_date),
         airDateStr: ne.air_date
       });
@@ -467,7 +487,7 @@ function updateStats() {
     const urlParams = new URLSearchParams(window.location.search);
     const publicUid = urlParams.get('u');
     const isFollowing = userFollowing.includes(publicUid);
-    const followBtnHtml = (currentUser && publicUid !== currentUser.uid) ? 
+    const followBtnHtml = (currentUser && publicUid !== currentUser.uid) ?
       `<button class="btn ${isFollowing ? 'btn-ghost' : 'btn-primary'}" style="font-size:0.75rem;padding:0.4rem 0.8rem" onclick="toggleFollow('${publicUid}')">${isFollowing ? '✓ Siguiendo' : '+ Seguir'}</button>` : '';
 
     // Hide discover, calendar, friends and Add button in public view
@@ -476,20 +496,21 @@ function updateStats() {
     if (document.getElementById('friendsTab')) document.getElementById('friendsTab').style.display = 'none';
     if (document.getElementById('addBtn')) document.getElementById('addBtn').style.display = 'none';
 
+    const viewLabel = currentView === 'stats' ? 'las stats' : 'la biblioteca';
     bar.innerHTML = `<div class="public-banner-wrap">
-      <div class="public-banner-text">Estás viendo la biblioteca de <strong>${publicUserName}</strong></div>
+      <div class="public-banner-text">Estás viendo ${viewLabel} de <strong>${publicUserName}</strong></div>
       ${followBtnHtml}
       <button class="btn btn-primary" style="font-size:0.75rem;padding:0.4rem 0.8rem" onclick="window.location.href=window.location.pathname">Volver a mi lista</button>
     </div>`;
-    
+
     // Hide share button in public view
     if (document.getElementById('headerShareBtn')) document.getElementById('headerShareBtn').style.display = 'none';
     return;
   }
-  
+
   // Show Add button in my list
   if (document.getElementById('addBtn')) document.getElementById('addBtn').style.display = 'block';
-  
+
   // Show all tabs and settings buttons if logged in
   if (currentUser) {
     if (document.getElementById('discoverTab')) document.getElementById('discoverTab').style.display = 'block';
@@ -550,7 +571,59 @@ function confirmDelete(id) {
   );
 }
 
+function scrollRecs(dir) {
+  const container = document.getElementById('modalRecommendations');
+  if (container) {
+    const scrollAmount = 400 * dir;
+    container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    // Visibility will be updated by the scroll listener
+  }
+}
+
+function updateRecArrows() {
+  const container = document.getElementById('modalRecommendations');
+  const leftArrow = document.querySelector('.nav-left');
+  const rightArrow = document.querySelector('.nav-right');
+  if (!container || !leftArrow || !rightArrow) return;
+
+  const scrollLeft = container.scrollLeft;
+  const scrollWidth = container.scrollWidth;
+  const clientWidth = container.clientWidth;
+
+  leftArrow.style.display = scrollLeft > 5 ? 'flex' : 'none';
+  rightArrow.style.display = (scrollLeft + clientWidth < scrollWidth - 5) ? 'flex' : 'none';
+}
+
+async function fetchRecommendations(tmdbId) {
+  const container = document.getElementById('modalRecommendations');
+  if (!container) return;
+  container.innerHTML = '<div class="spinner" style="margin:2rem auto"></div>';
+  
+  try {
+    const items = await tmdbRecs(tmdbId);
+    
+    if (!items.length) {
+      container.innerHTML = '<p style="color:var(--muted);font-size:0.8rem;text-align:center;padding:1rem">No hay recomendaciones disponibles</p>';
+      return;
+    }
+    
+    container.innerHTML = items.slice(0, 10).map(item => `
+        <div class="rec-item" onclick="closeModal(); openModal(${item.id}, true)">
+          <img src="${item.poster_path ? 'https://image.tmdb.org/t/p/w200' + item.poster_path : 'https://via.placeholder.com/100x150?text=No+Img'}" alt="${item.name}" loading="lazy">
+          <div class="rec-title">${item.name}</div>
+        </div>
+      `).join('');
+      
+    // Initial arrow state
+    container.onscroll = updateRecArrows;
+    setTimeout(updateRecArrows, 100);
+  } catch (e) {
+    container.innerHTML = '';
+  }
+}
+
 async function quickAdvance(id) {
+  if (isPublicView) return; // Security: cannot advance in public view
   const show = findShow(id); if (!show) return;
   const detail = await getShowDetail(show);
   const res = await computeAdvance(show, detail);
@@ -615,8 +688,8 @@ async function openModal(id, isTmdbId = false) {
   document.getElementById('modalTmdbNextEp').innerHTML = '';
   document.getElementById('modalTrailerBtnWrap').innerHTML = '';
   document.getElementById('modalCastWrap').style.display = 'none';
-  document.getElementById('modalSimilarWrap').style.display = 'none';
   document.getElementById('modalPlatforms').innerHTML = '';
+  document.getElementById('modalRecommendations').innerHTML = '';
 
   if (inList && !isPublicView) {
     document.getElementById('modalEditBtn').style.display = 'block';
@@ -682,6 +755,9 @@ async function openModal(id, isTmdbId = false) {
       }
     });
 
+    // Recommendations
+    fetchRecommendations(detail.id);
+
     // Cast
     tmdbCredits(detail.id).then(cast => {
       if (cast.length) {
@@ -690,18 +766,6 @@ async function openModal(id, isTmdbId = false) {
           <div class="cast-item">
             <img class="cast-img" src="${c.profile_path ? IMG + c.profile_path : ''}" alt="">
             <div class="cast-name">${c.name}</div>
-          </div>`).join('');
-      }
-    });
-
-    // Similar
-    tmdbSimilar(detail.id).then(similar => {
-      if (similar.length) {
-        document.getElementById('modalSimilarWrap').style.display = 'block';
-        document.getElementById('modalSimilar').innerHTML = similar.slice(0, 4).map(s => `
-          <div class="card" style="font-size:0.7rem;cursor:pointer" onclick="openModal('${s.id}', true)">
-            <img src="${IMG}${s.poster_path}" style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:6px">
-            <div style="padding:0.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
           </div>`).join('');
       }
     });
@@ -785,10 +849,10 @@ async function onPickerSeasonChange() {
         const current = seaDetail.episodes.find(x => x.episode_number === 1);
         if (current && current.air_date && current.air_date > today) isLocked = true;
       }
-      
+
       const prev = seaDetail.episodes.find(x => x.episode_number === e - 1);
       if (prev && prev.air_date && prev.air_date > today) isLocked = true;
-      
+
       // También bloqueamos si el propio episodio es muy lejano en el futuro
       const current = seaDetail.episodes.find(x => x.episode_number === e);
       if (current && e > 1) {
@@ -835,19 +899,19 @@ async function openEdit(id) {
   document.getElementById('tmdbSearchInput').value = ''; document.getElementById('tmdbResults').style.display = 'none';
   document.getElementById('dupWarning').style.display = 'none'; document.getElementById('deleteBtn').style.display = 'block';
   document.getElementById('editOverlay').classList.add('open');
-  
+
   togglePickerGroup();
   document.getElementById('pickerLoading').style.display = 'flex'; document.getElementById('pickerMain').style.display = 'none';
   editTmdbDetail = await getShowDetail(show);
-  
+
   // Escenarios basados en tus reglas:
   const tmdbStat = (editTmdbDetail && editTmdbDetail.status) ? editTmdbDetail.status.toLowerCase() : '';
   const ne = editTmdbDetail ? editTmdbDetail.next_episode_to_air : null;
   const isFutureEp1 = ne && ne.episode_number === 1 && parseDate(`T${ne.season_number}E${ne.episode_number} (${fmtDate(ne.air_date)})`) > new Date();
-  
+
   const isEnded = tmdbStat.includes('end') || tmdbStat.includes('cancel');
   const isFuture = (!show.seasons || !show.seasons.length) && isFutureEp1;
-  const isAiring = ne && !isFutureEp1; 
+  const isAiring = ne && !isFutureEp1;
   const isWaitingSeason = isFutureEp1 || (editTmdbDetail && !ne && !isEnded);
 
   const statusSelect = document.getElementById('editStatus');
@@ -858,18 +922,18 @@ async function openEdit(id) {
     else if (isEnded) can = (val !== 'waiting');
     else if (isAiring) can = (val === 'active' || val === 'pending');
     else if (isWaitingSeason) can = (val !== 'done');
-    
+
     opt.disabled = !can;
     opt.style.color = !can ? 'var(--muted)' : '';
   });
-  
+
   if (statusSelect.selectedOptions[0].disabled) {
     if (isFuture) statusSelect.value = 'waiting';
     else if (isEnded) statusSelect.value = 'done';
     else if (isAiring) statusSelect.value = 'active';
     else statusSelect.value = 'waiting';
   }
-  
+
   togglePickerGroup();
   document.getElementById('pickerLoading').style.display = 'none'; document.getElementById('pickerMain').style.display = 'block';
   await buildPickerOptions(editTmdbDetail);
@@ -912,8 +976,11 @@ async function saveShow() {
     } else {
       editSeasons = [];
     }
-  } else if (status === 'waiting' || status === 'pending') {
-    if (status === 'waiting' && editSeasons.length === 0 && editTmdbDetail) {
+  } else if (status === 'pending') {
+    editSeasons = [];
+    nextEp = 'Sin empezar';
+  } else if (status === 'waiting') {
+    if (editSeasons.length === 0 && editTmdbDetail) {
       let maxMark = 999;
       const ne = editTmdbDetail.next_episode_to_air;
       if (ne) maxMark = ne.season_number - 1;
@@ -925,7 +992,7 @@ async function saveShow() {
       nextEp = `T${ne.season_number} (${fmtDate(ne.air_date)})`;
     } else {
       const p = editSeasons.length ? parseEp(editSeasons[editSeasons.length - 1]) : null;
-      if (!p) nextEp = 'T1'; 
+      if (!p) nextEp = 'T1';
       else nextEp = `T${p.s + 1}`;
     }
   }
@@ -945,7 +1012,7 @@ async function saveShow() {
         editSeasons = ['T1E1'];
       }
     }
-    
+
     // Añadir fecha si es hoy o futuro al guardar desde el editor
     if (nextEp && nextEp.includes('E')) {
       const p = parseEp(nextEp);
@@ -1017,7 +1084,7 @@ document.getElementById('tmdbSearchInput').addEventListener('input', function ()
     box.innerHTML = res.map(r => {
       const dup = isDuplicate(r.name, editingId, r.id); const safeN = r.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
       return `<div class="tmdb-result" onclick="${dup ? '' : 'selectTmdb(' + r.id + ',\'' + safeN + '\',\'' + r.poster_path + '\',\'' + r.first_air_date + '\',\'' + r.backdrop_path + '\')'}" style="${dup ? 'opacity:0.45;cursor:not-allowed' : ''}">
-    ${r.poster_path ? `<img src="${IMG}${r.poster_path}" alt="">` : '<div style="width:30px;height:45px;background:var(--surface);border-radius:3px;display:flex;align-items:center;justify-content:center">📺</div>'}
+    ${r.poster_path ? `<img src="${IMG}${r.poster_path}" alt="" loading="lazy">` : '<div style="width:30px;height:45px;background:var(--surface);border-radius:3px;display:flex;align-items:center;justify-content:center">📺</div>'}
     <div class="tmdb-result-info"><p>${r.name}${dup ? ' <span style="color:var(--red);font-size:0.65rem">(ya en lista)</span>' : ''}</p><span>${r.first_air_date ? r.first_air_date.slice(0, 4) : ''} ${r.vote_average ? '· ★' + r.vote_average.toFixed(1) : ''}</span></div>
   </div>`;
     }).join(''); box.style.display = 'block';
@@ -1098,6 +1165,62 @@ async function init() {
   } finally {
     isInitializing = false;
   }
+}
+
+function renderStatsPage() {
+  const all = getAllShows();
+  let totalEps = 0;
+  let totalRating = 0;
+  let ratedCount = 0;
+  
+  all.forEach(s => {
+    const prog = calculateProgress(s);
+    // Rough estimate of episodes watched based on progress
+    const totalShowEps = s.tmdb ? s.tmdb.number_of_episodes : 0;
+    totalEps += Math.round((prog / 100) * totalShowEps);
+    
+    if (s.rating) {
+      totalRating += parseFloat(s.rating);
+      ratedCount++;
+    }
+  });
+
+  const totalMinutes = totalEps * 40; // Est. 40 mins per episode
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const mins = totalMinutes % 60;
+
+  document.getElementById('statsTotalTime').textContent = `${days}d ${hours}h ${mins}m`;
+  document.getElementById('statsTotalEps').textContent = totalEps;
+  document.getElementById('statsAvgRating').textContent = ratedCount ? (totalRating / ratedCount).toFixed(1) : '—';
+  document.getElementById('statsCompletedCount').textContent = DB.done.length;
+
+  // Status Distribution List
+  const dist = document.getElementById('statsStatusDist');
+  const total = all.length || 1;
+  
+  const statusItems = [
+    { label: 'En curso', count: DB.active.length, color: 'var(--blue)', icon: '📺' },
+    { label: 'Esperando', count: DB.waiting.length, color: 'var(--purple)', icon: '⏳' },
+    { label: 'Por ver', count: DB.pending.length, color: 'var(--muted)', icon: '🎯' },
+    { label: 'Finalizadas', count: DB.done.length, color: 'var(--gold)', icon: '✅' }
+  ];
+
+  dist.innerHTML = statusItems.map(item => {
+    const percent = (item.count / total) * 100;
+    return `
+      <div class="dist-row">
+        <div class="dist-info">
+          <span class="dist-icon">${item.icon}</span>
+          <span class="dist-label">${item.label}</span>
+          <span class="dist-count">${item.count}</span>
+        </div>
+        <div class="dist-bar-bg">
+          <div class="dist-bar-fill" style="width:${percent}%; background:${item.color}"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 async function syncTMDBData() {
@@ -1271,7 +1394,7 @@ function closeSettings() {
 async function saveSettings() {
   const newName = document.getElementById('settingsUserName').value.trim();
   if (!newName) { showToast("El nombre no puede estar vacío", "var(--red)"); return; }
-  
+
   if (newName !== (currentUser.customDisplayName || currentUser.displayName)) {
     const available = await isNameAvailable(newName);
     if (!available) {
@@ -1291,7 +1414,7 @@ function openConfirm(title, msg, onOk, btnText = "Confirmar") {
   document.getElementById('confirmMsg').textContent = msg;
   const okBtn = document.getElementById('confirmOkBtn');
   okBtn.textContent = btnText;
-  
+
   // Show/hide icon based on action
   const icon = document.getElementById('confirmIcon');
   if (icon) icon.style.display = (title.toLowerCase().includes('eliminar')) ? 'flex' : 'none';
@@ -1361,7 +1484,7 @@ async function toggleFollowFromSearch(uid) {
   const isFollowing = userFollowing.includes(uid);
   if (isFollowing) await unfollowUser(uid);
   else await followUser(uid);
-  
+
   handleUserSearch(); // Refresh results
   renderFriendsList(); // Refresh main list
   showToast(isFollowing ? "Dejado de seguir" : "Siguiendo a usuario");
