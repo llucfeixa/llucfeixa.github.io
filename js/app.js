@@ -1089,12 +1089,12 @@ async function init() {
   try {
     const saved = await loadDB();
     DB = saved || { active: [], waiting: [], pending: [], done: [] };
-    const moved = checkAutoMove();
+    const moved = (!isPublicView) ? checkAutoMove() : 0;
     if (moved) showToast(`📺 ${moved} serie${moved > 1 ? 's' : ''} pasada${moved > 1 ? 's' : ''} a "En curso"`);
     updateStats(); renderSections();
 
-    // Sync TMDB data in background
-    syncTMDBData();
+    // Sync TMDB data in background (only for own library)
+    if (!isPublicView) syncTMDBData();
   } finally {
     isInitializing = false;
   }

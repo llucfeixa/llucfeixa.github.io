@@ -103,7 +103,7 @@ firebase.auth().onAuthStateChanged(async user => {
     DB = localData ? JSON.parse(localData) : { active: [], waiting: [], pending: [], done: [] };
   }
 
-  await init();
+  if (typeof init === 'function') await init();
 
   if (loading) {
     loading.classList.remove('open');
@@ -127,6 +127,8 @@ async function loadDB() {
 }
 
 async function saveDB() {
+  if (isPublicView) return; // CRITICAL: Never save while viewing a public profile
+  
   const dbStr = JSON.stringify(DB);
   if (currentUser) {
     const dName = currentUser.customDisplayName || currentUser.displayName;
