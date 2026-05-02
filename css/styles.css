@@ -267,7 +267,7 @@ h3 {
 }
 
 .sections {
-  padding: 1.2rem 1.5rem;
+  padding: 1.2rem 80px; /* General margin for the whole page to prevent any clipping */
   display: flex;
   flex-direction: column;
   gap: 2.2rem;
@@ -336,8 +336,8 @@ h3 {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(125px, 1fr));
-  gap: 0.85rem
+  grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+  gap: 0.8rem
 }
 
 .list-view .grid {
@@ -576,29 +576,160 @@ h3 {
 .card {
   position: relative;
   border-radius: 9px;
-  overflow: hidden;
   cursor: pointer;
-  transition: transform 0.22s, box-shadow 0.22s;
   background: var(--surface);
-  border: 1px solid var(--border)
+  border: 1px solid var(--border);
+  transform-origin: center center;
+  transition: transform 0.22s, box-shadow 0.22s;
 }
 
 .card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(201, 168, 76, 0.25)
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(201, 168, 76, 0.25);
 }
+
+.card:hover .card-hover-popout {
+  display: none;
+}
+
+.card-hover-popout {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .netflix-scroll .card {
+    transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1) 0s;
+  }
+
+  /* Hovered card stays center but goes to front */
+  .netflix-scroll .card:hover {
+    z-index: 20;
+  }
+
+  /* The Popout that floats over everything */
+  .netflix-scroll .card-hover-popout {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 275px;
+    height: 105%; /* Slightly taller to give a nice pop */
+    transform: translate(-50%, -50%) scale(0.95);
+    background: var(--surface);
+    border-radius: 9px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.1);
+    z-index: 50;
+    overflow: hidden;
+    flex-direction: column;
+  }
+  
+  @keyframes popoutFadeIn {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+  }
+  @keyframes popoutFadeInFirst {
+    0% { opacity: 0; transform: translate(0, -50%) scale(0.95); }
+    100% { opacity: 1; transform: translate(0, -50%) scale(1.05); }
+  }
+  @keyframes popoutFadeInLast {
+    0% { opacity: 0; transform: translate(-100%, -50%) scale(0.95); }
+    100% { opacity: 1; transform: translate(-100%, -50%) scale(1.05); }
+  }
+
+  .netflix-scroll .card:hover .card-hover-popout {
+    display: flex;
+    opacity: 0;
+    pointer-events: auto;
+    animation: popoutFadeIn 0.3s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    animation-delay: 0s;
+  }
+
+  /* All cards now expand symmetrically. Padding trick handles edges. */
+
+  
+  /* If hovering an arrow, hide popouts so they don't block clicks */
+  .rec-container:has(.rec-nav:hover) .card-hover-popout {
+    display: none !important;
+  }
+
+  
+  .popout-backdrop {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: var(--surface2);
+  }
+  .popout-backdrop img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .popout-body {
+    padding: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    flex: 1;
+    justify-content: center;
+  }
+  .popout-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .popout-meta {
+    font-size: 0.75rem;
+    display: flex;
+    gap: 0.6rem;
+    color: var(--muted);
+  }
+  .popout-tags {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-top: 0.2rem;
+  }
+  .popout-tag {
+    font-size: 0.6rem;
+    padding: 0.15rem 0.4rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--muted);
+  }
+}
+
+/* ── NETFLIX ARROW FIXES ── */
+.rec-nav {
+  z-index: 100 !important; /* Ensure arrows are always above popouts */
+}
+
+/* Modal-specific arrow positioning */
+.modal-body .rec-container .nav-left {
+  left: 0;
+  background: rgba(10, 10, 10, 0.7);
+}
+.modal-body .rec-container .nav-right {
+  right: 0;
+  background: rgba(10, 10, 10, 0.7);
+}
+.modal-body .rec-container:hover .rec-nav {
+  opacity: 1;
+}
+
 
 .card-poster {
   position: relative;
   aspect-ratio: 2/3;
-  overflow: hidden
+  overflow: hidden;
+  border-radius: 9px 9px 0 0;
 }
 
 .card-poster img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s
 }
 
 .card:hover .card-poster img {
@@ -1648,6 +1779,47 @@ h3 {
   box-shadow: 0 0 0 1px rgba(76, 175, 125, 0.25) !important
 }
 
+/* Netflix Style Layout */
+.netflix-scroll {
+  display: flex;
+  gap: 0.8rem;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 0.8rem 80px 0.8rem; /* Symmetrical padding */
+  margin: -0.8rem -80px 0; 
+}
+.netflix-scroll::-webkit-scrollbar {
+  display: none;
+}
+.netflix-scroll .card {
+  flex: 0 0 135px;
+  width: 135px;
+  margin: 0;
+}
+.netflix-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  padding: 0.5rem 0;
+}
+.view-all-arrow {
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--muted);
+  transition: transform 0.2s, color 0.2s;
+}
+.netflix-section-header:hover .view-all-arrow {
+  color: var(--gold);
+  transform: translateX(4px);
+}
+@media (max-width: 600px) {
+  .netflix-scroll .card {
+    flex: 0 0 105px;
+    width: 105px;
+  }
+}
+
 .dup-warning {
   background: rgba(226, 84, 84, 0.1);
   border: 1px solid rgba(226, 84, 84, 0.35);
@@ -1934,25 +2106,26 @@ h3 {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: rgba(0,0,0,0.8);
+  background: rgba(10, 10, 10, 0.9);
   border: 1px solid var(--border);
   color: white;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10;
+  z-index: 100 !important;
   opacity: 0;
   transition: all 0.2s;
-  font-size: 1.2rem;
+  font-size: 1.4rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }
 .rec-container:hover .rec-nav { opacity: 1; }
-.rec-nav:hover { background: var(--gold); border-color: var(--gold); }
-.nav-left { left: 0; }
-.nav-right { right: 0; }
+.rec-nav:hover { background: var(--gold); border-color: var(--gold); transform: translateY(-50%) scale(1.1); }
+.nav-left { left: -65px; }
+.nav-right { right: -65px; }
 
 .rec-item {
   flex: 0 0 120px; /* Forced uniform width */
@@ -2068,8 +2241,8 @@ h3 {
 @media (max-width: 600px) {
   /* Grid Mobile 3 Columns */
   .grid {
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)) !important;
-    gap: 0.5rem !important;
+    grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)) !important;
+    gap: 0.8rem !important;
     padding: 0.5rem !important;
   }
   .card-info {

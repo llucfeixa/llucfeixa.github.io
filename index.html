@@ -57,6 +57,7 @@
 
   <div class="header">
     <div style="position: absolute; right: 1.5rem; top: 1.5rem; display: flex; gap: 0.8rem;">
+      <button id="addBtn" class="btn btn-primary" style="display: none; font-size: 0.85rem; padding: 0.5rem 0.8rem;">+ Añadir</button>
       <button id="openLoginBtn" onclick="openLogin()" class="btn btn-primary"
         style="font-size: 0.85rem; padding: 0.5rem 1rem;">Entrar / Registrarse</button>
       <button id="logoutBtn" onclick="logout()" class="btn btn-ghost logout-btn" style="display: none;">Cerrar sesión</button>
@@ -74,22 +75,7 @@
   </div>
   <div class="stats-bar" id="statsBar"></div>
   <div id="mySeriesView">
-    <div class="controls">
-      <div class="search-wrap"><span class="search-icon">🔍</span><input type="text" id="searchInput"
-          placeholder="Buscar serie..."></div>
-      <div class="filter-group">
-        <button class="filter-btn active" data-filter="all">Todas</button>
-        <button class="filter-btn" data-filter="active">En curso</button>
-        <button class="filter-btn" data-filter="pending">Por ver</button>
-        <button class="filter-btn" data-filter="waiting">Esperando</button>
-        <button class="filter-btn" data-filter="done">Finalizadas</button>
-      </div>
-      <button class="add-btn" id="addBtn">＋ Añadir</button>
-      <div class="view-toggle">
-        <button class="view-btn active" id="gridViewBtn">▦</button>
-        <button class="view-btn" id="listViewBtn">☰</button>
-      </div>
-    </div>
+
     <div class="sections" id="sectionsContainer"></div>
   </div>
 
@@ -143,28 +129,12 @@
         <input type="text" id="discoverSearchInput" placeholder="Buscar cualquier serie en TMDB...">
       </div>
     </div>
-    <div id="genreFilters" class="genre-filters">
+    <div id="genreFilters" class="genre-filters" style="display:none">
       <!-- Genres will be injected here -->
     </div>
     <div class="sections" id="discoverSections">
-      <!-- Search results will appear here if searching -->
       <div id="discoverDefaultContent">
-        <div class="section">
-          <div class="section-header">
-            <div class="section-dot" style="background:var(--gold)"></div>
-            <div class="section-title" style="color:var(--gold)">Tendencias de la semana</div>
-            <div class="section-line"></div>
-          </div>
-          <div class="grid" id="discoverTrendingGrid"></div>
-        </div>
-        <div class="section" style="margin-top:2rem">
-          <div class="section-header">
-            <div class="section-dot" style="background:var(--purple)"></div>
-            <div class="section-title" style="color:var(--purple)">Mejor valoradas</div>
-            <div class="section-line"></div>
-          </div>
-          <div class="grid" id="discoverTopGrid"></div>
-        </div>
+        <!-- Rows will be injected dynamically here -->
       </div>
       <div id="discoverSearchResults" style="display:none">
         <div class="section">

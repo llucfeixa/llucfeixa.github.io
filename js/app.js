@@ -6,6 +6,7 @@ let editingId = null, editSeasons = [], editTmdbDetail = null, trendingCache = [
 let tmdbTimer = null, discoverTimer = null, openModalId = null, currentGenreId = null;
 let trendingPage = 1, topRatedPage = 1, searchPage = 1;
 let trendingHasMore = true, topRatedHasMore = true, searchHasMore = true;
+let isTrendingLoading = false, isTopRatedLoading = false, isSearchLoading = false;
 let genreStates = {}; // Stores { page, cache, hasMore } per genreId
 
 function getAllShows() { return [...DB.active, ...DB.waiting, ...DB.pending, ...DB.done] }
@@ -69,24 +70,37 @@ function createCard(show) {
 </div>`;
   }
   const progress = calculateProgress(show);
+  const backdrop = show.tmdb && show.tmdb.backdrop_path ? `${IMG}${show.tmdb.backdrop_path}` : poster;
+  
   return `<div class="card">
 <div class="card-poster" onclick="openModal('${id}')">
   ${poster ? `<img src="${poster}" alt="${show.title}" loading="lazy">` : `<div class="card-poster-placeholder"><span>📺</span><p>${show.title}</p></div>`}
   ${rating ? `<div class="card-rating">★${rating}</div>` : ''}
-  ${hasNext && !isPublicView ? `<button class="card-next-btn" onclick="event.stopPropagation();quickAdvance('${id}')">▶ Marcar ${show.nextEp.split(' ')[0]}</button>` : ''}
-  ${isPending && !isPublicView ? `<button class="card-next-btn" onclick="event.stopPropagation();startWatching('${id}')">▶ Empezar a ver</button>` : ''}
 </div>
-${!isPublicView ? `
-<div class="card-actions">
-  <button class="card-action-btn" onclick="event.stopPropagation();openEdit('${id}')">✏️</button>
-  <button class="card-action-btn del" onclick="event.stopPropagation();confirmDelete('${id}')">🗑</button>
-</div>
-` : ''}
 <div class="card-body" onclick="openModal('${id}')">
   <div class="card-title">${show.title}</div>
   <div class="card-meta"><span class="card-ep">${show.nextEp || last || 'Sin empezar'}</span><div class="card-status-dot" style="background:${cfg.dot}"></div></div>
   ${show.seasons && show.seasons.length ? `<div class="card-progress-bar"><div class="card-progress-bar-fill" style="width:${progress}%;background:var(--gold)"></div></div>` : ''}
 </div>
+
+<!-- NETFLIX HOVER POPOUT (PC ONLY) -->
+<div class="card-hover-popout" onclick="openModal('${id}')">
+  <div class="popout-backdrop">
+    ${backdrop ? `<img src="${backdrop}" alt="" loading="lazy">` : ''}
+  </div>
+  <div class="popout-body">
+    <div class="popout-title">${show.title}</div>
+    <div class="popout-meta">
+      <span style="color:var(--green); font-weight:700;">${rating ? rating*10+'% coincidencia' : 'Nuevo'}</span>
+      <span>${show.seasons && show.seasons.length ? show.seasons.length + ' Temporadas' : 'Serie'}</span>
+    </div>
+    <div class="popout-tags">
+      <span class="popout-tag">${cfg.label.replace(/^[^\s]+ /, '')}</span>
+      ${show.nextEp ? `<span class="popout-tag" style="border-color:var(--gold); color:var(--gold)">${show.nextEp}</span>` : ''}
+    </div>
+  </div>
+</div>
+
 </div>`;
 }
 
@@ -130,34 +144,223 @@ function calculateProgress(show) {
   return Math.min(98, percent);
 }
 
+let netflixCategory = null;
+let savedScrollPos = 0;
+
+function openCategoryView(cat) {
+  if (cat !== null) {
+    // Save scroll position before entering category
+    savedScrollPos = window.scrollY;
+  }
+
+  netflixCategory = cat;
+  currentFilter = cat || 'all';
+  
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    if (b.dataset.filter === currentFilter) b.classList.add('active');
+    else b.classList.remove('active');
+  });
+  
+  renderSections();
+  
+  if (cat !== null) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    window.scrollTo({ top: savedScrollPos, behavior: 'auto' });
+  }
+}
+
+function updateNetflixArrows(scrollEl) {
+  if (!scrollEl) return;
+  const container = scrollEl.parentElement;
+  const left = container.querySelector('.nav-left');
+  const right = container.querySelector('.nav-right');
+  if (!left || !right) return;
+  
+  const maxScroll = scrollEl.scrollWidth - scrollEl.clientWidth;
+  left.style.display = scrollEl.scrollLeft > 20 ? 'flex' : 'none';
+  right.style.display = (maxScroll > 30 && scrollEl.scrollLeft < maxScroll - 20) ? 'flex' : 'none';
+
+  // Infinite Scroll Hook
+  if (scrollEl.id === 'discoverTrendingGrid' && trendingHasMore && !isTrendingLoading) {
+    if (scrollEl.scrollLeft + scrollEl.clientWidth > scrollEl.scrollWidth - 600) {
+      loadMoreTrending();
+    }
+  }
+  if (scrollEl.id === 'discoverTopGrid' && topRatedHasMore && !isTopRatedLoading) {
+    if (scrollEl.scrollLeft + scrollEl.clientWidth > scrollEl.scrollWidth - 600) {
+      loadMoreTopRated();
+    }
+  }
+  
+  // Genre row infinite scroll
+  if (scrollEl.id.startsWith('discoverGenreGrid_')) {
+    const gid = parseInt(scrollEl.id.split('_')[1]);
+    const state = genreStates[gid];
+    if (state && state.hasMore && !state.loading) {
+      if (scrollEl.scrollLeft + scrollEl.clientWidth > scrollEl.scrollWidth - 600) {
+        loadMoreGenreRow(gid);
+      }
+    }
+  }
+}
+
+async function loadMoreGenreRow(gid) {
+  const state = genreStates[gid];
+  if (!state || state.loading || !state.hasMore) return;
+  state.loading = true;
+  state.page++;
+  
+  const res = await tmdbDiscoverByGenre(gid, state.page);
+  if (res && res.length) {
+    const grid = document.getElementById(`discoverGenreGrid_${gid}`);
+    state.cache = [...state.cache, ...res];
+    state.cache = [...new Map(state.cache.map(s => [s.id, s])).values()];
+    if (grid) {
+      grid.innerHTML = state.cache.map(s => renderDiscoverCard(s)).join('');
+      updateNetflixArrows(grid);
+    }
+  }
+  state.hasMore = res && res.length >= 20;
+  state.loading = false;
+}
+
+async function loadMoreTrending() {
+  isTrendingLoading = true;
+  trendingPage++;
+  const res = await tmdbTrending(trendingPage);
+  if (res && res.length) {
+    const grid = document.getElementById('discoverTrendingGrid');
+    trendingCache = [...trendingCache, ...res];
+    trendingCache = [...new Map(trendingCache.map(s => [s.id, s])).values()];
+    grid.innerHTML = trendingCache.map(s => renderDiscoverCard(s)).join('');
+    updateNetflixArrows(grid);
+  }
+  trendingHasMore = res && res.length >= 20;
+  isTrendingLoading = false;
+}
+
+async function loadMoreTopRated() {
+  isTopRatedLoading = true;
+  topRatedPage++;
+  const res = await tmdbTopRated(topRatedPage);
+  if (res && res.length) {
+    const grid = document.getElementById('discoverTopGrid');
+    topRatedCache = [...topRatedCache, ...res];
+    topRatedCache = [...new Map(topRatedCache.map(s => [s.id, s])).values()];
+    grid.innerHTML = topRatedCache.map(s => renderDiscoverCard(s)).join('');
+    updateNetflixArrows(grid);
+  }
+  topRatedHasMore = res && res.length >= 20;
+  isTopRatedLoading = false;
+}
+
+function scrollNetflixRow(btn, dir) {
+  const scrollEl = btn.parentElement.querySelector('.netflix-scroll');
+  if (!scrollEl) return;
+  const amount = scrollEl.clientWidth * 0.8;
+  scrollEl.scrollBy({ left: dir * amount, behavior: 'smooth' });
+}
+
+function initNetflixRows() {
+  document.querySelectorAll('.rec-container .netflix-scroll').forEach(scrollEl => {
+    // Re-check visibility always, but only add listener once
+    if (!scrollEl.dataset.init) {
+      scrollEl.dataset.init = "true";
+      scrollEl.addEventListener('scroll', (e) => updateNetflixArrows(e.target));
+    }
+    updateNetflixArrows(scrollEl);
+  });
+  // Extra check after images/layout might have shifted
+  setTimeout(() => {
+    document.querySelectorAll('.rec-container .netflix-scroll').forEach(updateNetflixArrows);
+  }, 400);
+}
+
 function renderSections() {
   const con = document.getElementById('sectionsContainer');
   if (!con) return;
-  const q = document.getElementById('searchInput').value.toLowerCase();
+  const q = (document.getElementById('searchInput') || {}).value || '';
+  const searchQ = q.toLowerCase();
+  
+  const toggleBtn = document.getElementById('viewToggleBtn');
+  if (toggleBtn) {
+    if (!searchQ && !netflixCategory) {
+      toggleBtn.style.display = 'none';
+    } else {
+      toggleBtn.style.display = 'inline-flex';
+    }
+  }
+
+  // Apply list-view class only to the container if we are not in grid view
   if (!isGridView) con.classList.add('list-view'); else con.classList.remove('list-view');
+  
   const ORDER = ['active', 'pending', 'waiting', 'done'];
   const cats = currentFilter === 'all' ? ORDER : [currentFilter];
-
   let html = '';
+  
+  if (searchQ || netflixCategory) {
+    const renderCats = netflixCategory ? [netflixCategory] : cats;
+    let found = false;
+    for (const cat of renderCats) {
+      let shows = (DB[cat] || []).filter(s => !searchQ || s.title.toLowerCase().includes(searchQ));
+      if (!shows.length) continue;
+      found = true;
+      shows = sortedShows(cat, shows);
+      const cfg = secCfg(cat);
+      html += `<div class="section">
+    <div class="section-header">
+      ${netflixCategory ? `<button class="btn btn-ghost" style="padding:0.3rem 0.6rem; margin-right: 0.5rem;" onclick="openCategoryView(null)">← Volver</button>` : ''}
+      <div class="section-dot ${cat === 'active' ? 'active-pulse' : ''}" style="background:${cfg.dot}"></div>
+      <div class="section-title" style="color:${cfg.dot}">${cfg.label}</div>
+      <span class="section-count">${shows.length}</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="grid">${shows.map(s => createCard(s)).join('')}</div>
+  </div>`;
+    }
+    con.innerHTML = html || '<div class="no-results">🎬 No se encontraron series</div>';
+    return;
+  }
+
+  // Netflix-style horizontal row view
   for (const cat of cats) {
-    let shows = (DB[cat] || []).filter(s => !q || s.title.toLowerCase().includes(q));
+    let shows = (DB[cat] || []);
     if (!shows.length) continue;
     shows = sortedShows(cat, shows);
     const cfg = secCfg(cat);
-    html += `<div class="section">
-  <div class="section-header">
+    
+    // Save original view state to force grid cards for Netflix rows
+    const wasGrid = isGridView;
+    isGridView = true; 
+    const cardsHtml = shows.map(s => createCard(s)).join('');
+    isGridView = wasGrid;
+    
+    html += `<div class="section" style="margin-bottom: 0.2rem;">
+  <div class="section-header" style="cursor: pointer;" onclick="openCategoryView('${cat}')">
     <div class="section-dot ${cat === 'active' ? 'active-pulse' : ''}" style="background:${cfg.dot}"></div>
-    <div class="section-title" style="color:${cfg.dot}">${cfg.label}</div>
+    <div class="section-title" style="color:${cfg.dot}; display: flex; align-items: center; gap: 0.3rem;">
+      ${cfg.label} <span class="view-all-arrow" style="font-size: 1.2rem; color: var(--muted); margin-left: 0.2rem;">›</span>
+    </div>
     <span class="section-count">${shows.length}</span>
     <div class="section-line"></div>
   </div>
-  <div class="grid">${shows.map(s => createCard(s)).join('')}</div>
+  <div class="rec-container" style="margin-top: 0.5rem;">
+    <button class="rec-nav nav-left" onclick="scrollNetflixRow(this, -1)" type="button" style="display:none;">‹</button>
+    <div class="netflix-scroll">
+      ${cardsHtml}
+    </div>
+    <button class="rec-nav nav-right" onclick="scrollNetflixRow(this, 1)" type="button" style="display:none;">›</button>
+  </div>
 </div>`;
   }
+  
   con.innerHTML = html || '<div class="no-results">🎬 No se encontraron series</div>';
+  setTimeout(initNetflixRows, 100);
 }
 
 function switchView(view) {
+  if (view === 'my-series') netflixCategory = null;
   currentView = view;
   const myView = document.getElementById('mySeriesView');
   const discView = document.getElementById('discoverView');
@@ -220,138 +423,117 @@ function switchView(view) {
   }
 }
 
-async function renderDiscover(append = false) {
-  const trendingGrid = document.getElementById('discoverTrendingGrid');
-  const topGrid = document.getElementById('discoverTopGrid');
-  const genreDiv = document.getElementById('genreFilters');
+async function renderDiscover() {
   const defContent = document.getElementById('discoverDefaultContent');
   const searchResults = document.getElementById('discoverSearchResults');
   const searchGrid = document.getElementById('discoverSearchGrid');
   const q = document.getElementById('discoverSearchInput').value.trim();
 
-  if (!trendingGrid || !topGrid || !genreDiv) return;
+  if (!defContent || !searchResults) return;
 
-  // 1. Ensure genres are loaded
-  if (!genreCache) {
-    genreCache = await tmdbGenres();
-    genreDiv.innerHTML = '<button class="genre-tag active" id="genreAll" onclick="filterByGenre(null)">Todos</button>' +
-      genreCache.map(g => `<button class="genre-tag" data-id="${g.id}" onclick="filterByGenre(${g.id})">${g.name}</button>`).join('');
-  }
-
-  function deselectGenres() {
-    document.querySelectorAll('.genre-tag').forEach(b => {
-      if (b.id === 'genreAll') b.classList.add('active');
-      else b.classList.remove('active');
-    });
-  }
-
-  // 2. Determine state: Search > Genre > Default
+  // 1. Handle Search Mode
   if (q) {
     defContent.style.display = 'none';
     searchResults.style.display = 'block';
     document.querySelector('#discoverSearchResults .section-title').textContent = 'Resultados de búsqueda';
-
-    // Cleanup other buttons
-    ['loadMoreTrending', 'loadMoreTop', 'loadMoreGenre'].forEach(id => { const b = document.getElementById(id); if (b) b.remove(); });
-
-    if (!append) {
-      searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Buscando...</div>';
-      searchPage = 1;
-    }
-
-    const results = await tmdbMulti(q, searchPage);
-    if (!append) searchGrid.innerHTML = '';
-
-    if (!results.length && !append) {
-      searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No se encontraron series.</div>';
-      searchHasMore = false;
-    } else if (!results.length && append) {
-      searchHasMore = false;
-    } else {
-      const currentIds = new Set([...searchGrid.querySelectorAll('.card-poster')].map(el => {
-        const attr = el.getAttribute('onclick');
-        const match = attr.match(/'(\d+)'/);
-        return match ? match[1] : null;
-      }));
-      const newHtml = results.filter(s => !currentIds.has(String(s.id))).map(s => renderDiscoverCard(s)).join('');
-      searchGrid.innerHTML += newHtml;
-      searchHasMore = results.length >= 20;
-    }
-
-    updateLoadMoreBtn(searchGrid, 'loadMoreSearch', searchHasMore, () => { searchPage++; renderDiscover(true); });
+    searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Buscando...</div>';
+    searchPage = 1;
+    const results = await tmdbMulti(q, 1);
+    searchGrid.innerHTML = results.length ? results.map(s => renderDiscoverCard(s)).join('') : '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No se encontraron series.</div>';
+    searchHasMore = results.length >= 20;
     return;
   }
 
-  if (currentGenreId) {
-    defContent.style.display = 'none';
-    searchResults.style.display = 'block';
-    const genreName = genreCache.find(g => g.id === currentGenreId)?.name || 'Género';
-    document.querySelector('#discoverSearchResults .section-title').textContent = 'Género: ' + genreName;
-
-    // Cleanup other buttons
-    ['loadMoreTrending', 'loadMoreTop', 'loadMoreSearch'].forEach(id => { const b = document.getElementById(id); if (b) b.remove(); });
-
-    if (!genreStates[currentGenreId]) {
-      genreStates[currentGenreId] = { page: 1, cache: [], hasMore: true };
-    }
-    const state = genreStates[currentGenreId];
-
-    if (!state.cache.length && !append) {
-      searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Filtrando...</div>';
-    }
-
-    if (append && state.hasMore) {
-      const res = await tmdbDiscoverByGenre(currentGenreId, state.page);
-      state.cache = [...state.cache, ...res];
-      state.hasMore = res.length >= 20;
-    } else if (!state.cache.length) {
-      const res = await tmdbDiscoverByGenre(currentGenreId, 1);
-      state.cache = res; state.page = 1; state.hasMore = res.length >= 20;
-    }
-
-    // Deduplicate cache just in case
-    state.cache = [...new Map(state.cache.map(s => [s.id, s])).values()];
-
-    searchGrid.innerHTML = state.cache.map(s => renderDiscoverCard(s)).join('');
-    updateLoadMoreBtn(searchGrid, 'loadMoreGenre', state.hasMore, () => { state.page++; renderDiscover(true); });
-    return;
-  }
-
-  // 3. Default state (Trending & Top Rated)
+  // 2. Default Mode (Netflix Home Style)
   defContent.style.display = 'block';
   searchResults.style.display = 'none';
-  if (document.getElementById('loadMoreGenre')) document.getElementById('loadMoreGenre').remove();
-  if (document.getElementById('loadMoreSearch')) document.getElementById('loadMoreSearch').remove();
 
-  // Trending
-  if (!trendingCache.length) {
-    trendingGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div></div>';
-    const res = await tmdbTrending(1);
-    trendingCache = res; trendingPage = 1; trendingHasMore = res.length >= 20;
-  } else if (append && trendingHasMore) {
-    const res = await tmdbTrending(trendingPage);
-    trendingCache = [...trendingCache, ...res];
-    trendingHasMore = res.length >= 20;
+  // 3. Render Trending/Top Rated shells immediately if missing
+  if (!document.getElementById('discoverTrendingGrid')) {
+    defContent.innerHTML = `
+      <div class="section">
+        <div class="section-header">
+          <div class="section-dot" style="background:var(--gold)"></div>
+          <div class="section-title" style="color:var(--gold)">Tendencias de la semana</div>
+          <div class="section-line"></div>
+        </div>
+        <div class="rec-container" style="margin-top:0.5rem">
+          <button class="rec-nav nav-left" onclick="scrollNetflixRow(this, -1)" type="button" style="display:none;">‹</button>
+          <div class="netflix-scroll" id="discoverTrendingGrid"></div>
+          <button class="rec-nav nav-right" onclick="scrollNetflixRow(this, 1)" type="button" style="display:none;">›</button>
+        </div>
+      </div>
+      <div class="section" style="margin-top:2rem">
+        <div class="section-header">
+          <div class="section-dot" style="background:var(--purple)"></div>
+          <div class="section-title" style="color:var(--purple)">Mejor valoradas</div>
+          <div class="section-line"></div>
+        </div>
+        <div class="rec-container" style="margin-top:0.5rem">
+          <button class="rec-nav nav-left" onclick="scrollNetflixRow(this, -1)" type="button" style="display:none;">‹</button>
+          <div class="netflix-scroll" id="discoverTopGrid"></div>
+          <button class="rec-nav nav-right" onclick="scrollNetflixRow(this, 1)" type="button" style="display:none;">›</button>
+        </div>
+      </div>
+    `;
   }
-  // Deduplicate
-  trendingCache = [...new Map(trendingCache.map(s => [s.id, s])).values()];
-  trendingGrid.innerHTML = trendingCache.map(s => renderDiscoverCard(s)).join('');
-  updateLoadMoreBtn(trendingGrid, 'loadMoreTrending', trendingHasMore, () => { trendingPage++; renderDiscover(true); });
 
-  // Top Rated
-  if (!topRatedCache.length) {
-    topGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div></div>';
-    const res = await tmdbTopRated(1);
-    topRatedCache = res; topRatedPage = 1; topRatedHasMore = res.length >= 20;
-  } else if (append && topRatedHasMore) {
-    const res = await tmdbTopRated(topRatedPage);
-    topRatedCache = [...topRatedCache, ...res];
-    topRatedHasMore = res.length >= 20;
+  // 4. Populate Trending/Top Rated
+  const trendingGrid = document.getElementById('discoverTrendingGrid');
+  const topGrid = document.getElementById('discoverTopGrid');
+
+  if (trendingGrid && !trendingGrid.innerHTML.trim()) {
+    if (!trendingCache.length) trendingCache = await tmdbTrending(1);
+    trendingGrid.innerHTML = trendingCache.map(s => renderDiscoverCard(s)).join('');
   }
-  // Deduplicate
-  topRatedCache = [...new Map(topRatedCache.map(s => [s.id, s])).values()];
-  topGrid.innerHTML = topRatedCache.map(s => renderDiscoverCard(s)).join('');
-  updateLoadMoreBtn(topGrid, 'loadMoreTop', topRatedHasMore, () => { topRatedPage++; renderDiscover(true); });
+  if (topGrid && !topGrid.innerHTML.trim()) {
+    if (!topRatedCache.length) topRatedCache = await tmdbTopRated(1);
+    topGrid.innerHTML = topRatedCache.map(s => renderDiscoverCard(s)).join('');
+  }
+
+  initNetflixRows();
+
+  // 5. Load Genres in background
+  if (!genreCache) genreCache = await tmdbGenres();
+  
+  const colors = ['#4caf7d', '#5b9bd5', '#9b7ec8', '#f1c40f', '#e67e22', '#e74c3c'];
+  for (const [i, g] of genreCache.entries()) {
+    let grid = document.getElementById(`discoverGenreGrid_${g.id}`);
+    if (!grid) {
+      // Append shell for this genre
+      const color = colors[i % colors.length];
+      const section = document.createElement('div');
+      section.className = 'section';
+      section.style.marginTop = '2rem';
+      section.innerHTML = `
+        <div class="section-header">
+          <div class="section-dot" style="background:${color}"></div>
+          <div class="section-title" style="color:${color}">${g.name}</div>
+          <div class="section-line"></div>
+        </div>
+        <div class="rec-container" style="margin-top:0.5rem">
+          <button class="rec-nav nav-left" onclick="scrollNetflixRow(this, -1)" type="button" style="display:none;">‹</button>
+          <div class="netflix-scroll" id="discoverGenreGrid_${g.id}">
+            <div class="spinner" style="margin:2rem auto"></div>
+          </div>
+          <button class="rec-nav nav-right" onclick="scrollNetflixRow(this, 1)" type="button" style="display:none;">›</button>
+        </div>
+      `;
+      defContent.appendChild(section);
+      grid = document.getElementById(`discoverGenreGrid_${g.id}`);
+    }
+
+    if (grid && grid.querySelector('.spinner')) {
+      if (!genreStates[g.id]) {
+        genreStates[g.id] = { page: 1, cache: [], hasMore: true, loading: false };
+        const res = await tmdbDiscoverByGenre(g.id, 1);
+        genreStates[g.id].cache = res;
+        genreStates[g.id].hasMore = res.length >= 20;
+      }
+      grid.innerHTML = genreStates[g.id].cache.map(s => renderDiscoverCard(s)).join('');
+      initNetflixRows(); // Initialize arrows/listeners for the new row
+    }
+  }
 }
 
 function updateLoadMoreBtn(container, id, show, onClick) {
@@ -376,9 +558,7 @@ function renderDiscoverCard(s) {
   const rating = s.vote_average ? s.vote_average.toFixed(1) : '';
   const inList = getAllShows().some(x => x.tmdb && x.tmdb.id === s.id);
   const date = s.first_air_date ? s.first_air_date.slice(0, 4) : '';
-  const safeTitle = s.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-  const safePoster = s.poster_path || '';
-  const safeBackdrop = s.backdrop_path || '';
+  const backdrop = s.backdrop_path ? `${IMG}${s.backdrop_path}` : poster;
 
   return `<div class="card">
     <div class="card-poster" onclick="openModal('${s.id}', true)">
@@ -389,6 +569,24 @@ function renderDiscoverCard(s) {
     <div class="card-body" onclick="openModal('${s.id}', true)">
       <div class="card-title">${s.name}</div>
       <div class="card-meta"><span class="card-ep">${date}</span></div>
+    </div>
+    
+    <!-- NETFLIX HOVER POPOUT (PC ONLY) -->
+    <div class="card-hover-popout" onclick="openModal('${s.id}', true)">
+      <div class="popout-backdrop">
+        ${backdrop ? `<img src="${backdrop}" alt="" loading="lazy">` : ''}
+      </div>
+      <div class="popout-body">
+        <div class="popout-title">${s.name}</div>
+        <div class="popout-meta">
+          <span style="color:var(--green); font-weight:700;">${rating ? rating*10+'% coincidencia' : 'Nuevo'}</span>
+          <span>Serie</span>
+        </div>
+        <div class="popout-tags">
+          <span class="popout-tag">${date}</span>
+          ${inList ? `<span class="popout-tag" style="border-color:var(--green); color:var(--green)">En tu lista</span>` : ''}
+        </div>
+      </div>
     </div>
   </div>`;
 }
@@ -593,16 +791,19 @@ function scrollRecs(dir) {
 
 function updateRecArrows() {
   const container = document.getElementById('modalRecommendations');
-  const leftArrow = document.querySelector('.nav-left');
-  const rightArrow = document.querySelector('.nav-right');
-  if (!container || !leftArrow || !rightArrow) return;
+  const wrap = document.getElementById('modalRecommendationsWrap');
+  if (!container || !wrap) return;
+
+  const leftArrow = wrap.querySelector('.nav-left');
+  const rightArrow = wrap.querySelector('.nav-right');
+  if (!leftArrow || !rightArrow) return;
 
   const scrollLeft = container.scrollLeft;
   const scrollWidth = container.scrollWidth;
   const clientWidth = container.clientWidth;
 
-  leftArrow.style.display = scrollLeft > 5 ? 'flex' : 'none';
-  rightArrow.style.display = (scrollLeft + clientWidth < scrollWidth - 5) ? 'flex' : 'none';
+  leftArrow.style.display = scrollLeft > 10 ? 'flex' : 'none';
+  rightArrow.style.display = (scrollLeft + clientWidth < scrollWidth - 10) ? 'flex' : 'none';
 }
 
 async function fetchRecommendations(tmdbId) {
@@ -1117,11 +1318,22 @@ async function selectTmdb(tmdbId, name, poster, date, backdrop) {
 }
 
 // ── EVENTS ────────────────────────────────────────
-document.getElementById('searchInput').addEventListener('input', () => renderSections());
-document.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.filter-btn').forEach(x => x.classList.remove('active')); b.classList.add('active'); currentFilter = b.dataset.filter; renderSections(); }));
-document.getElementById('gridViewBtn').addEventListener('click', () => { isGridView = true; document.getElementById('gridViewBtn').classList.add('active'); document.getElementById('listViewBtn').classList.remove('active'); renderSections(); });
-document.getElementById('listViewBtn').addEventListener('click', () => { isGridView = false; document.getElementById('listViewBtn').classList.add('active'); document.getElementById('gridViewBtn').classList.remove('active'); renderSections(); });
-document.getElementById('addBtn').addEventListener('click', openAdd);
+const searchInp = document.getElementById('searchInput');
+if (searchInp) searchInp.addEventListener('input', () => renderSections());
+
+document.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', () => { 
+  const cat = b.dataset.filter === 'all' ? null : b.dataset.filter;
+  openCategoryView(cat);
+}));
+
+const gridBtn = document.getElementById('gridViewBtn');
+if (gridBtn) gridBtn.addEventListener('click', () => { isGridView = true; document.getElementById('gridViewBtn').classList.add('active'); document.getElementById('listViewBtn').classList.remove('active'); renderSections(); });
+
+const listBtn = document.getElementById('listViewBtn');
+if (listBtn) listBtn.addEventListener('click', () => { isGridView = false; document.getElementById('listViewBtn').classList.add('active'); document.getElementById('gridViewBtn').classList.remove('active'); renderSections(); });
+
+const addBtn = document.getElementById('addBtn');
+if (addBtn) addBtn.addEventListener('click', openAdd);
 document.getElementById('modalClose').addEventListener('click', closeModal);
 document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target === document.getElementById('modalOverlay')) closeModal(); });
 document.getElementById('editClose').addEventListener('click', closeEdit);
@@ -1507,5 +1719,44 @@ document.addEventListener('click', (e) => {
   const input = document.getElementById('userSearchInput');
   if (box && !box.contains(e.target) && e.target !== input) {
     box.style.display = 'none';
+  }
+});
+
+async function loadMoreSearch() {
+  const q = document.getElementById('discoverSearchInput').value.trim();
+  if (!q || isSearchLoading || !searchHasMore) return;
+  
+  isSearchLoading = true;
+  searchPage++;
+  const results = await tmdbMulti(q, searchPage);
+  if (results && results.length) {
+    const grid = document.getElementById('discoverSearchGrid');
+    if (grid) {
+      const currentIds = new Set([...grid.querySelectorAll('.card-poster')].map(el => {
+        const attr = el.getAttribute('onclick');
+        const match = attr.match(/'(\d+)'/);
+        return match ? match[1] : null;
+      }));
+      const newHtml = results.filter(s => !currentIds.has(String(s.id))).map(s => renderDiscoverCard(s)).join('');
+      grid.innerHTML += newHtml;
+    }
+  }
+  searchHasMore = results.length >= 20;
+  isSearchLoading = false;
+}
+
+window.addEventListener('resize', () => {
+  document.querySelectorAll('.rec-container .netflix-scroll').forEach(updateNetflixArrows);
+});
+
+window.addEventListener('scroll', () => {
+  // Infinite Vertical Search Scroll
+  if (currentView === 'discover' && searchHasMore && !isSearchLoading) {
+    const q = document.getElementById('discoverSearchInput')?.value.trim();
+    if (q) {
+      if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 1000) {
+        loadMoreSearch();
+      }
+    }
   }
 });
