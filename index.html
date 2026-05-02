@@ -57,7 +57,6 @@
 
   <div class="header">
     <div style="position: absolute; right: 1.5rem; top: 1.5rem; display: flex; gap: 0.8rem;">
-      <button id="addBtn" class="btn btn-primary" style="display: none; font-size: 0.85rem; padding: 0.5rem 0.8rem;">+ Añadir</button>
       <button id="openLoginBtn" onclick="openLogin()" class="btn btn-primary"
         style="font-size: 0.85rem; padding: 0.5rem 1rem;">Entrar / Registrarse</button>
       <button id="logoutBtn" onclick="logout()" class="btn btn-ghost logout-btn" style="display: none;">Cerrar sesión</button>
@@ -128,6 +127,11 @@
         <span class="search-icon">🔍</span>
         <input type="text" id="discoverSearchInput" placeholder="Buscar cualquier serie en TMDB...">
       </div>
+      <label class="toggle-wrap" style="margin-left: auto;">
+        <input type="checkbox" id="hideInListToggle" style="display:none" onchange="toggleHideInList(this.checked)">
+        <div class="toggle-switch"></div>
+        <span>Ocultar ya añadidas</span>
+      </label>
     </div>
     <div id="genreFilters" class="genre-filters" style="display:none">
       <!-- Genres will be injected here -->
@@ -382,6 +386,8 @@
   </div>
 
   <div class="toast" id="toast"></div>
+
+  <button id="backToTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'})">↑</button>
 
   <script src="js/utils.js"></script>
   <script src="js/secrets.js"></script>

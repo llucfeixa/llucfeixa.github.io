@@ -7,7 +7,9 @@ let tmdbTimer = null, discoverTimer = null, openModalId = null, currentGenreId =
 let trendingPage = 1, topRatedPage = 1, searchPage = 1;
 let trendingHasMore = true, topRatedHasMore = true, searchHasMore = true;
 let isTrendingLoading = false, isTopRatedLoading = false, isSearchLoading = false;
-let genreStates = {}; // Stores { page, cache, hasMore } per genreId
+let genreStates = {}; 
+let rowObserver = null; 
+let hideInListState = localStorage.getItem('hideInList') === 'true';
 
 function getAllShows() { return [...DB.active, ...DB.waiting, ...DB.pending, ...DB.done] }
 function findShow(id) { return getAllShows().find(s => String(s.id) === String(id)) }
@@ -217,7 +219,8 @@ async function loadMoreGenreRow(gid) {
     state.cache = [...state.cache, ...res];
     state.cache = [...new Map(state.cache.map(s => [s.id, s])).values()];
     if (grid) {
-      grid.innerHTML = state.cache.map(s => renderDiscoverCard(s)).join('');
+      const filtered = filterDiscoverResults(state.cache);
+      grid.innerHTML = filtered.map(s => renderDiscoverCard(s)).join('');
       updateNetflixArrows(grid);
     }
   }
@@ -233,7 +236,8 @@ async function loadMoreTrending() {
     const grid = document.getElementById('discoverTrendingGrid');
     trendingCache = [...trendingCache, ...res];
     trendingCache = [...new Map(trendingCache.map(s => [s.id, s])).values()];
-    grid.innerHTML = trendingCache.map(s => renderDiscoverCard(s)).join('');
+    const filtered = filterDiscoverResults(trendingCache);
+    grid.innerHTML = filtered.map(s => renderDiscoverCard(s)).join('');
     updateNetflixArrows(grid);
   }
   trendingHasMore = res && res.length >= 20;
@@ -248,7 +252,8 @@ async function loadMoreTopRated() {
     const grid = document.getElementById('discoverTopGrid');
     topRatedCache = [...topRatedCache, ...res];
     topRatedCache = [...new Map(topRatedCache.map(s => [s.id, s])).values()];
-    grid.innerHTML = topRatedCache.map(s => renderDiscoverCard(s)).join('');
+    const filtered = filterDiscoverResults(topRatedCache);
+    grid.innerHTML = filtered.map(s => renderDiscoverCard(s)).join('');
     updateNetflixArrows(grid);
   }
   topRatedHasMore = res && res.length >= 20;
@@ -423,23 +428,42 @@ function switchView(view) {
   }
 }
 
+function getSkeletons(count = 6) {
+  return Array(count).fill('<div class="skeleton-card"></div>').join('');
+}
+
+function filterDiscoverResults(results) {
+  if (!hideInListState) return results;
+  const myIds = new Set(getAllShows().filter(s => s.tmdb).map(s => String(s.tmdb.id)));
+  return results.filter(s => !myIds.has(String(s.id)));
+}
+
+function toggleHideInList(checked) {
+  hideInListState = checked;
+  localStorage.setItem('hideInList', checked);
+  renderDiscover();
+}
+
 async function renderDiscover() {
   const defContent = document.getElementById('discoverDefaultContent');
   const searchResults = document.getElementById('discoverSearchResults');
   const searchGrid = document.getElementById('discoverSearchGrid');
   const q = document.getElementById('discoverSearchInput').value.trim();
+  const toggleBtn = document.getElementById('hideInListToggle');
 
   if (!defContent || !searchResults) return;
+  if (toggleBtn) toggleBtn.checked = hideInListState;
 
   // 1. Handle Search Mode
   if (q) {
     defContent.style.display = 'none';
     searchResults.style.display = 'block';
     document.querySelector('#discoverSearchResults .section-title').textContent = 'Resultados de búsqueda';
-    searchGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)"><div class="spinner" style="margin:0 auto 1rem"></div>Buscando...</div>';
+    searchGrid.innerHTML = getSkeletons(12); // Use skeletons for search
     searchPage = 1;
     const results = await tmdbMulti(q, 1);
-    searchGrid.innerHTML = results.length ? results.map(s => renderDiscoverCard(s)).join('') : '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No se encontraron series.</div>';
+    const filtered = filterDiscoverResults(results);
+    searchGrid.innerHTML = filtered.length ? filtered.map(s => renderDiscoverCard(s)).join('') : '<div style="grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--muted)">No se encontraron series.</div>';
     searchHasMore = results.length >= 20;
     return;
   }
@@ -448,7 +472,7 @@ async function renderDiscover() {
   defContent.style.display = 'block';
   searchResults.style.display = 'none';
 
-  // 3. Render Trending/Top Rated shells immediately if missing
+  // Render Shells for Trending/Top Rated if missing
   if (!document.getElementById('discoverTrendingGrid')) {
     defContent.innerHTML = `
       <div class="section">
@@ -459,7 +483,7 @@ async function renderDiscover() {
         </div>
         <div class="rec-container" style="margin-top:0.5rem">
           <button class="rec-nav nav-left" onclick="scrollNetflixRow(this, -1)" type="button" style="display:none;">‹</button>
-          <div class="netflix-scroll" id="discoverTrendingGrid"></div>
+          <div class="netflix-scroll" id="discoverTrendingGrid">${getSkeletons()}</div>
           <button class="rec-nav nav-right" onclick="scrollNetflixRow(this, 1)" type="button" style="display:none;">›</button>
         </div>
       </div>
@@ -471,40 +495,56 @@ async function renderDiscover() {
         </div>
         <div class="rec-container" style="margin-top:0.5rem">
           <button class="rec-nav nav-left" onclick="scrollNetflixRow(this, -1)" type="button" style="display:none;">‹</button>
-          <div class="netflix-scroll" id="discoverTopGrid"></div>
+          <div class="netflix-scroll" id="discoverTopGrid">${getSkeletons()}</div>
           <button class="rec-nav nav-right" onclick="scrollNetflixRow(this, 1)" type="button" style="display:none;">›</button>
         </div>
       </div>
     `;
   }
 
-  // 4. Populate Trending/Top Rated
+  // Populate Trending/Top Rated
   const trendingGrid = document.getElementById('discoverTrendingGrid');
   const topGrid = document.getElementById('discoverTopGrid');
 
-  if (trendingGrid && !trendingGrid.innerHTML.trim()) {
+  if (trendingGrid) {
     if (!trendingCache.length) trendingCache = await tmdbTrending(1);
-    trendingGrid.innerHTML = trendingCache.map(s => renderDiscoverCard(s)).join('');
+    const filtered = filterDiscoverResults(trendingCache);
+    trendingGrid.innerHTML = filtered.map(s => renderDiscoverCard(s)).join('');
+    initNetflixRows();
   }
-  if (topGrid && !topGrid.innerHTML.trim()) {
+  if (topGrid) {
     if (!topRatedCache.length) topRatedCache = await tmdbTopRated(1);
-    topGrid.innerHTML = topRatedCache.map(s => renderDiscoverCard(s)).join('');
+    const filtered = filterDiscoverResults(topRatedCache);
+    topGrid.innerHTML = filtered.map(s => renderDiscoverCard(s)).join('');
+    initNetflixRows();
   }
 
-  initNetflixRows();
-
-  // 5. Load Genres in background
+  // Load Genres and setup Lazy Loading
   if (!genreCache) genreCache = await tmdbGenres();
   
   const colors = ['#4caf7d', '#5b9bd5', '#9b7ec8', '#f1c40f', '#e67e22', '#e74c3c'];
+  
+  // Setup Observer
+  if (!rowObserver) {
+    rowObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const gid = entry.target.dataset.genreId;
+          if (gid) loadGenreRowData(gid);
+          rowObserver.unobserve(entry.target);
+        }
+      });
+    }, { rootMargin: '200px' });
+  }
+
   for (const [i, g] of genreCache.entries()) {
     let grid = document.getElementById(`discoverGenreGrid_${g.id}`);
     if (!grid) {
-      // Append shell for this genre
       const color = colors[i % colors.length];
       const section = document.createElement('div');
-      section.className = 'section';
+      section.className = 'section row-lazy';
       section.style.marginTop = '2rem';
+      section.dataset.genreId = g.id;
       section.innerHTML = `
         <div class="section-header">
           <div class="section-dot" style="background:${color}"></div>
@@ -514,26 +554,39 @@ async function renderDiscover() {
         <div class="rec-container" style="margin-top:0.5rem">
           <button class="rec-nav nav-left" onclick="scrollNetflixRow(this, -1)" type="button" style="display:none;">‹</button>
           <div class="netflix-scroll" id="discoverGenreGrid_${g.id}">
-            <div class="spinner" style="margin:2rem auto"></div>
+            ${getSkeletons()}
           </div>
           <button class="rec-nav nav-right" onclick="scrollNetflixRow(this, 1)" type="button" style="display:none;">›</button>
         </div>
       `;
       defContent.appendChild(section);
-      grid = document.getElementById(`discoverGenreGrid_${g.id}`);
-    }
-
-    if (grid && grid.querySelector('.spinner')) {
-      if (!genreStates[g.id]) {
-        genreStates[g.id] = { page: 1, cache: [], hasMore: true, loading: false };
-        const res = await tmdbDiscoverByGenre(g.id, 1);
-        genreStates[g.id].cache = res;
-        genreStates[g.id].hasMore = res.length >= 20;
+      rowObserver.observe(section);
+    } else {
+      // If we have data cached, re-render it to apply filter
+      const state = genreStates[g.id];
+      if (state && state.cache.length) {
+        const filtered = filterDiscoverResults(state.cache);
+        grid.innerHTML = filtered.map(s => renderDiscoverCard(s)).join('');
+        initNetflixRows();
       }
-      grid.innerHTML = genreStates[g.id].cache.map(s => renderDiscoverCard(s)).join('');
-      initNetflixRows(); // Initialize arrows/listeners for the new row
     }
   }
+}
+
+async function loadGenreRowData(gid) {
+  const grid = document.getElementById(`discoverGenreGrid_${gid}`);
+  if (!grid) return;
+
+  if (!genreStates[gid]) {
+    genreStates[gid] = { page: 1, cache: [], hasMore: true, loading: false };
+    const res = await tmdbDiscoverByGenre(gid, 1);
+    genreStates[gid].cache = res;
+    genreStates[gid].hasMore = res.length >= 20;
+  }
+  
+  const filtered = filterDiscoverResults(genreStates[gid].cache);
+  grid.innerHTML = filtered.map(s => renderDiscoverCard(s)).join('');
+  initNetflixRows();
 }
 
 function updateLoadMoreBtn(container, id, show, onClick) {
@@ -809,7 +862,9 @@ function updateRecArrows() {
 async function fetchRecommendations(tmdbId) {
   const container = document.getElementById('modalRecommendations');
   if (!container) return;
-  container.innerHTML = '<div class="spinner" style="margin:2rem auto"></div>';
+  
+  // Use skeletons while loading
+  container.innerHTML = Array(6).fill('<div class="skeleton-card" style="width:140px; min-width:140px; height:210px"></div>').join('');
   
   try {
     const items = await tmdbRecs(tmdbId);
@@ -819,14 +874,21 @@ async function fetchRecommendations(tmdbId) {
       return;
     }
     
-    container.innerHTML = items.slice(0, 10).map(item => `
+    // Apply the "Hide already added" filter if active
+    const filtered = filterDiscoverResults(items);
+    
+    if (!filtered.length) {
+      container.innerHTML = '<p style="color:var(--muted);font-size:0.8rem;text-align:center;padding:1rem">No hay nuevas recomendaciones</p>';
+      return;
+    }
+
+    container.innerHTML = filtered.slice(0, 10).map(item => `
         <div class="rec-item" onclick="closeModal(); openModal(${item.id}, true)">
-          <img src="${item.poster_path ? 'https://image.tmdb.org/t/p/w200' + item.poster_path : 'https://via.placeholder.com/100x150?text=No+Img'}" alt="${item.name}" loading="lazy">
+          <img src="${item.poster_path ? 'https://image.tmdb.org/t/p/w200' + item.poster_path : ''}" alt="${item.name}" loading="lazy">
           <div class="rec-title">${item.name}</div>
         </div>
       `).join('');
       
-    // Initial arrow state
     container.onscroll = updateRecArrows;
     setTimeout(updateRecArrows, 100);
   } catch (e) {
@@ -949,9 +1011,11 @@ async function openModal(id, isTmdbId = false) {
 
     if (!inList) {
       document.getElementById('modalAddBtn').onclick = () => {
+        const title = detail.name;
         closeModal();
         openAdd(true);
         selectTmdb(detail.id, detail.name, detail.poster_path, detail.first_air_date, detail.backdrop_path);
+        showToast(`✨ ¡${title} lista para añadir!`);
       };
     }
 
@@ -970,15 +1034,20 @@ async function openModal(id, isTmdbId = false) {
     // Recommendations
     fetchRecommendations(detail.id);
 
-    // Cast
+    // Cast with skeletons
+    const castContainer = document.getElementById('modalCast');
+    castContainer.innerHTML = Array(6).fill('<div class="skeleton-cast"></div>').join('');
+    document.getElementById('modalCastWrap').style.display = 'block';
+
     tmdbCredits(detail.id).then(cast => {
       if (cast.length) {
-        document.getElementById('modalCastWrap').style.display = 'block';
-        document.getElementById('modalCast').innerHTML = cast.slice(0, 10).map(c => `
+        castContainer.innerHTML = cast.slice(0, 10).map(c => `
           <div class="cast-item">
             <img class="cast-img" src="${c.profile_path ? IMG + c.profile_path : ''}" alt="">
             <div class="cast-name">${c.name}</div>
           </div>`).join('');
+      } else {
+        document.getElementById('modalCastWrap').style.display = 'none';
       }
     });
 
@@ -1732,12 +1801,13 @@ async function loadMoreSearch() {
   if (results && results.length) {
     const grid = document.getElementById('discoverSearchGrid');
     if (grid) {
+      const filtered = filterDiscoverResults(results);
       const currentIds = new Set([...grid.querySelectorAll('.card-poster')].map(el => {
         const attr = el.getAttribute('onclick');
         const match = attr.match(/'(\d+)'/);
         return match ? match[1] : null;
       }));
-      const newHtml = results.filter(s => !currentIds.has(String(s.id))).map(s => renderDiscoverCard(s)).join('');
+      const newHtml = filtered.filter(s => !currentIds.has(String(s.id))).map(s => renderDiscoverCard(s)).join('');
       grid.innerHTML += newHtml;
     }
   }
@@ -1750,6 +1820,13 @@ window.addEventListener('resize', () => {
 });
 
 window.addEventListener('scroll', () => {
+  // Back to top button
+  const topBtn = document.getElementById('backToTopBtn');
+  if (topBtn) {
+    if (window.scrollY > 500) topBtn.classList.add('visible');
+    else topBtn.classList.remove('visible');
+  }
+
   // Infinite Vertical Search Scroll
   if (currentView === 'discover' && searchHasMore && !isSearchLoading) {
     const q = document.getElementById('discoverSearchInput')?.value.trim();
