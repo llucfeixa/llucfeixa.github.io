@@ -7,8 +7,8 @@ let tmdbTimer = null, discoverTimer = null, openModalId = null, currentGenreId =
 let trendingPage = 1, topRatedPage = 1, searchPage = 1;
 let trendingHasMore = true, topRatedHasMore = true, searchHasMore = true;
 let isTrendingLoading = false, isTopRatedLoading = false, isSearchLoading = false;
-let genreStates = {}; 
-let rowObserver = null; 
+let genreStates = {};
+let rowObserver = null;
 let hideInListState = localStorage.getItem('hideInList') === 'true';
 
 function getAllShows() { return [...DB.active, ...DB.waiting, ...DB.pending, ...DB.done] }
@@ -56,7 +56,7 @@ function createCard(show) {
   <div class="list-thumb" onclick="openModal('${id}')">${poster ? `<img src="${poster}" alt="" loading="lazy">` : '📺'}</div>
   <div class="list-info" onclick="openModal('${id}')">
     <div class="list-title">${show.title}</div>
-    <div class="list-sub">${show.nextEp ? `Pendiente: <strong>${show.nextEp}</strong>` : `Visto: ${last || '—'}`}</div>
+    <div class="list-sub">${show.nextEp ? `Pendiente: <strong>${show.nextEp}</strong>` : (show.status === 'done' ? `Visto: <strong>Completa</strong>` : `Visto: ${last || '—'}`)}</div>
   </div>
   <div class="list-right">
     <span class="badge ${cfg.badge}">${cfg.label}</span>
@@ -73,7 +73,7 @@ function createCard(show) {
   }
   const progress = calculateProgress(show);
   const backdrop = show.tmdb && show.tmdb.backdrop_path ? `${IMG}${show.tmdb.backdrop_path}` : poster;
-  
+
   return `<div class="card">
 <div class="card-poster" onclick="openModal('${id}')">
   ${poster ? `<img src="${poster}" alt="${show.title}" loading="lazy">` : `<div class="card-poster-placeholder"><span>📺</span><p>${show.title}</p></div>`}
@@ -81,7 +81,7 @@ function createCard(show) {
 </div>
 <div class="card-body" onclick="openModal('${id}')">
   <div class="card-title">${show.title}</div>
-  <div class="card-meta"><span class="card-ep">${show.nextEp || last || 'Sin empezar'}</span><div class="card-status-dot" style="background:${cfg.dot}"></div></div>
+  <div class="card-meta"><span class="card-ep">${show.status === 'done' ? (last ? `${last}` : 'Completa') : (show.nextEp || last || 'Sin empezar')}</span><div class="card-status-dot" style="background:${cfg.dot}"></div></div>
   ${show.seasons && show.seasons.length ? `<div class="card-progress-bar"><div class="card-progress-bar-fill" style="width:${progress}%;background:var(--gold)"></div></div>` : ''}
 </div>
 
@@ -93,7 +93,7 @@ function createCard(show) {
   <div class="popout-body">
     <div class="popout-title">${show.title}</div>
     <div class="popout-meta">
-      <span style="color:var(--green); font-weight:700;">${rating ? rating*10+'% coincidencia' : 'Nuevo'}</span>
+      <span style="color:var(--green); font-weight:700;">${rating ? rating * 10 + '% coincidencia' : 'Nuevo'}</span>
       <span>${show.seasons && show.seasons.length ? show.seasons.length + ' Temporadas' : 'Serie'}</span>
     </div>
     <div class="popout-tags">
@@ -157,14 +157,14 @@ function openCategoryView(cat) {
 
   netflixCategory = cat;
   currentFilter = cat || 'all';
-  
+
   document.querySelectorAll('.filter-btn').forEach(b => {
     if (b.dataset.filter === currentFilter) b.classList.add('active');
     else b.classList.remove('active');
   });
-  
+
   renderSections();
-  
+
   if (cat !== null) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } else {
@@ -178,7 +178,7 @@ function updateNetflixArrows(scrollEl) {
   const left = container.querySelector('.nav-left');
   const right = container.querySelector('.nav-right');
   if (!left || !right) return;
-  
+
   const maxScroll = scrollEl.scrollWidth - scrollEl.clientWidth;
   left.style.display = scrollEl.scrollLeft > 20 ? 'flex' : 'none';
   right.style.display = (maxScroll > 30 && scrollEl.scrollLeft < maxScroll - 20) ? 'flex' : 'none';
@@ -194,7 +194,7 @@ function updateNetflixArrows(scrollEl) {
       loadMoreTopRated();
     }
   }
-  
+
   // Genre row infinite scroll
   if (scrollEl.id.startsWith('discoverGenreGrid_')) {
     const gid = parseInt(scrollEl.id.split('_')[1]);
@@ -212,7 +212,7 @@ async function loadMoreGenreRow(gid) {
   if (!state || state.loading || !state.hasMore) return;
   state.loading = true;
   state.page++;
-  
+
   const res = await tmdbDiscoverByGenre(gid, state.page);
   if (res && res.length) {
     const grid = document.getElementById(`discoverGenreGrid_${gid}`);
@@ -287,7 +287,7 @@ function renderSections() {
   if (!con) return;
   const q = (document.getElementById('searchInput') || {}).value || '';
   const searchQ = q.toLowerCase();
-  
+
   const toggleBtn = document.getElementById('viewToggleBtn');
   if (toggleBtn) {
     if (!searchQ && !netflixCategory) {
@@ -299,11 +299,11 @@ function renderSections() {
 
   // Apply list-view class only to the container if we are not in grid view
   if (!isGridView) con.classList.add('list-view'); else con.classList.remove('list-view');
-  
+
   const ORDER = ['active', 'pending', 'waiting', 'done'];
   const cats = currentFilter === 'all' ? ORDER : [currentFilter];
   let html = '';
-  
+
   if (searchQ || netflixCategory) {
     const renderCats = netflixCategory ? [netflixCategory] : cats;
     let found = false;
@@ -334,13 +334,13 @@ function renderSections() {
     if (!shows.length) continue;
     shows = sortedShows(cat, shows);
     const cfg = secCfg(cat);
-    
+
     // Save original view state to force grid cards for Netflix rows
     const wasGrid = isGridView;
-    isGridView = true; 
+    isGridView = true;
     const cardsHtml = shows.map(s => createCard(s)).join('');
     isGridView = wasGrid;
-    
+
     html += `<div class="section" style="margin-bottom: 0.2rem;">
   <div class="section-header" style="cursor: pointer;" onclick="openCategoryView('${cat}')">
     <div class="section-dot ${cat === 'active' ? 'active-pulse' : ''}" style="background:${cfg.dot}"></div>
@@ -359,7 +359,7 @@ function renderSections() {
   </div>
 </div>`;
   }
-  
+
   con.innerHTML = html || '<div class="no-results">🎬 No se encontraron series</div>';
   setTimeout(initNetflixRows, 100);
 }
@@ -521,9 +521,9 @@ async function renderDiscover() {
 
   // Load Genres and setup Lazy Loading
   if (!genreCache) genreCache = await tmdbGenres();
-  
+
   const colors = ['#4caf7d', '#5b9bd5', '#9b7ec8', '#f1c40f', '#e67e22', '#e74c3c'];
-  
+
   // Setup Observer
   if (!rowObserver) {
     rowObserver = new IntersectionObserver((entries) => {
@@ -583,7 +583,7 @@ async function loadGenreRowData(gid) {
     genreStates[gid].cache = res;
     genreStates[gid].hasMore = res.length >= 20;
   }
-  
+
   const filtered = filterDiscoverResults(genreStates[gid].cache);
   grid.innerHTML = filtered.map(s => renderDiscoverCard(s)).join('');
   initNetflixRows();
@@ -632,7 +632,7 @@ function renderDiscoverCard(s) {
       <div class="popout-body">
         <div class="popout-title">${s.name}</div>
         <div class="popout-meta">
-          <span style="color:var(--green); font-weight:700;">${rating ? rating*10+'% coincidencia' : 'Nuevo'}</span>
+          <span style="color:var(--green); font-weight:700;">${rating ? rating * 10 + '% coincidencia' : 'Nuevo'}</span>
           <span>Serie</span>
         </div>
         <div class="popout-tags">
@@ -862,21 +862,21 @@ function updateRecArrows() {
 async function fetchRecommendations(tmdbId) {
   const container = document.getElementById('modalRecommendations');
   if (!container) return;
-  
+
   // Use skeletons while loading
   container.innerHTML = Array(6).fill('<div class="skeleton-card" style="width:140px; min-width:140px; height:210px"></div>').join('');
-  
+
   try {
     const items = await tmdbRecs(tmdbId);
-    
+
     if (!items.length) {
       container.innerHTML = '<p style="color:var(--muted);font-size:0.8rem;text-align:center;padding:1rem">No hay recomendaciones disponibles</p>';
       return;
     }
-    
+
     // Apply the "Hide already added" filter if active
     const filtered = filterDiscoverResults(items);
-    
+
     if (!filtered.length) {
       container.innerHTML = '<p style="color:var(--muted);font-size:0.8rem;text-align:center;padding:1rem">No hay nuevas recomendaciones</p>';
       return;
@@ -888,7 +888,7 @@ async function fetchRecommendations(tmdbId) {
           <div class="rec-title">${item.name}</div>
         </div>
       `).join('');
-      
+
     container.onscroll = updateRecArrows;
     setTimeout(updateRecArrows, 100);
   } catch (e) {
@@ -1276,6 +1276,12 @@ async function saveShow() {
       if (!p) nextEp = 'T1';
       else nextEp = `T${p.s + 1}`;
     }
+  } else if (status === 'done') {
+    if (editTmdbDetail) {
+      const real = (editTmdbDetail.seasons || []).filter(s => s.season_number > 0 && s.episode_count > 0);
+      editSeasons = real.map(s => `T${s.season_number}`);
+    }
+    nextEp = null;
   }
   if (status === 'active') {
     if (editingId) {
@@ -1390,7 +1396,7 @@ async function selectTmdb(tmdbId, name, poster, date, backdrop) {
 const searchInp = document.getElementById('searchInput');
 if (searchInp) searchInp.addEventListener('input', () => renderSections());
 
-document.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', () => { 
+document.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', () => {
   const cat = b.dataset.filter === 'all' ? null : b.dataset.filter;
   openCategoryView(cat);
 }));
@@ -1464,13 +1470,13 @@ function renderStatsPage() {
   let totalEps = 0;
   let totalRating = 0;
   let ratedCount = 0;
-  
+
   all.forEach(s => {
     const prog = calculateProgress(s);
     // Rough estimate of episodes watched based on progress
     const totalShowEps = s.tmdb ? s.tmdb.number_of_episodes : 0;
     totalEps += Math.round((prog / 100) * totalShowEps);
-    
+
     if (s.rating) {
       totalRating += parseFloat(s.rating);
       ratedCount++;
@@ -1490,7 +1496,7 @@ function renderStatsPage() {
   // Status Distribution List
   const dist = document.getElementById('statsStatusDist');
   const total = all.length || 1;
-  
+
   const statusItems = [
     { label: 'En curso', count: DB.active.length, color: 'var(--blue)', icon: '📺' },
     { label: 'Esperando', count: DB.waiting.length, color: 'var(--purple)', icon: '⏳' },
@@ -1794,7 +1800,7 @@ document.addEventListener('click', (e) => {
 async function loadMoreSearch() {
   const q = document.getElementById('discoverSearchInput').value.trim();
   if (!q || isSearchLoading || !searchHasMore) return;
-  
+
   isSearchLoading = true;
   searchPage++;
   const results = await tmdbMulti(q, searchPage);
