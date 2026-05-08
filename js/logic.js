@@ -106,8 +106,20 @@ function inferStatus(seaList, detail, manual) {
 }
 
 async function autoCorrectStatus(show, detail) {
-  if (!detail || show.status === 'pending') return false;
+  if (!detail) return false;
   const tmdbSt = detail.status; const ne = detail.next_episode_to_air;
+
+  // For pending series, we only care about updating the nextEp date if T1 is announced
+  if (show.status === 'pending') {
+    if (ne && ne.air_date) {
+      const newNext = `T${ne.season_number}E${ne.episode_number} (${fmtDate(ne.air_date)})`;
+      if (show.nextEp !== newNext) {
+        show.nextEp = newNext;
+        return true;
+      }
+    }
+    return false;
+  }
 
   if (show.status === 'done') {
     if (tmdbSt !== 'Ended' && tmdbSt !== 'Canceled') {
@@ -136,10 +148,10 @@ async function autoCorrectStatus(show, detail) {
     const lastStr = userSeasons.length ? userSeasons[userSeasons.length - 1] : null;
     const parsed = lastStr ? parseEp(lastStr) : null;
     const curSeason = parsed ? parsed.s : 0;
-    
+
     const newAiredSeason = tmdbSeasons.find(s => s.season_number > curSeason && s.air_date && s.air_date <= today);
     const hasStarted = (ne && (ne.episode_number > 1 || (ne.episode_number === 1 && ne.air_date && ne.air_date <= today))) || newAiredSeason;
-    
+
     if (hasStarted) {
       const startSeason = newAiredSeason ? newAiredSeason.season_number : (ne ? ne.season_number : curSeason + 1);
       const sData = tmdbSeasons.find(s => s.season_number === startSeason);
@@ -160,6 +172,15 @@ async function autoCorrectStatus(show, detail) {
   }
 
   if (show.status === 'active') {
+    // Also update date if we are in active and next ep is announced
+    if (ne && ne.air_date) {
+      const newNext = `T${ne.season_number}E${ne.episode_number} (${fmtDate(ne.air_date)})`;
+      if (show.nextEp !== newNext) {
+        show.nextEp = newNext;
+        return true;
+      }
+    }
+
     const seasons = show.seasons || []; if (!seasons.length) return false;
     const last = seasons[seasons.length - 1]; const parsed = parseEp(last); if (!parsed) return false;
     const { s: curSeason, e: curEp } = parsed;
@@ -183,6 +204,7 @@ async function autoCorrectStatus(show, detail) {
   }
   return false;
 }
+
 
 function checkAutoMove() {
   const now = new Date(), ids = [];

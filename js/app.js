@@ -1523,38 +1523,48 @@ function renderStatsPage() {
 
 async function syncTMDBData() {
   let changesMade = false;
-  for (const show of getAllShows()) {
+  const all = getAllShows();
+  
+  for (const show of all) {
+    let localChange = false;
     if (!show.tmdb) {
       const t = await tmdbSearch(show.title);
-      if (t) { show.tmdb = t; changesMade = true; }
+      if (t) { show.tmdb = t; localChange = true; }
     }
     if (show.tmdb) {
-      const d = await tmdbDetail(show.tmdb.id);
-      if (d) {
-        // 1. Update main rating
-        const r = tmdbRating(d);
-        if (show.rating !== r) { show.rating = r; changesMade = true; }
+      try {
+        const d = await tmdbDetail(show.tmdb.id);
+        if (d) {
+          // 1. Update main rating
+          const r = tmdbRating(d);
+          if (show.rating !== r) { show.rating = r; localChange = true; }
 
-        // 2. Update TMDB metadata fields
-        const fields = ['poster_path', 'backdrop_path', 'overview', 'first_air_date', 'number_of_seasons', 'number_of_episodes'];
-        fields.forEach(f => {
-          if (show.tmdb[f] !== d[f]) {
-            show.tmdb[f] = d[f];
-            changesMade = true;
-          }
-        });
+          // 2. Update TMDB metadata fields
+          const fields = ['poster_path', 'backdrop_path', 'overview', 'first_air_date', 'number_of_seasons', 'number_of_episodes'];
+          fields.forEach(f => {
+            if (show.tmdb[f] !== d[f]) {
+              show.tmdb[f] = d[f];
+              localChange = true;
+            }
+          });
 
-        // 3. Auto-correct status/progression (only if not pending)
-        if (show.status !== 'pending') {
+          // 3. Auto-correct status/progression (now including pending for nextEp dates)
           const c = await autoCorrectStatus(show, d);
-          if (c) changesMade = true;
+          if (c) localChange = true;
         }
+      } catch (e) { console.error("Sync error for", show.title, e); }
+      
+      if (localChange) {
+        changesMade = true;
+        await saveDB(); 
+        updateStats(); 
+        renderSections(); 
       }
-      await new Promise(res => setTimeout(res, 150));
+      await new Promise(res => setTimeout(res, 180));
     }
   }
-  if (changesMade) { await saveDB(); updateStats(); renderSections(); }
 }
+
 
 setInterval(async () => {
   const n = checkAutoMove();
