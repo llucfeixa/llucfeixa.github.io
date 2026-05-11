@@ -111,15 +111,15 @@ function calculateProgress(show) {
   if (!show.seasons || !show.seasons.length) return 0;
   if (!show.tmdb || !show.tmdb.number_of_episodes) return 0;
 
-  const totalEps = show.tmdb.number_of_episodes;
+  const tmdbSeasons = (show.tmdb.seasons || []).filter(s => s.season_number > 0);
+  const totalEps = tmdbSeasons.reduce((sum, s) => sum + s.episode_count, 0) || show.tmdb.number_of_episodes;
+  
   let watchedEps = 0;
-  const tmdbSeasons = show.tmdb.seasons || [];
-
-  // Agrupamos por temporada para no contar de más
   const perSeason = {};
+
   show.seasons.forEach(tag => {
     const p = parseEp(tag);
-    if (!p) return;
+    if (!p || p.s === 0) return; // Ignore specials (Season 0)
     if (p.e === null) {
       perSeason[p.s] = 'all';
     } else {
@@ -130,20 +130,23 @@ function calculateProgress(show) {
   });
 
   Object.keys(perSeason).forEach(sNum => {
-    const val = perSeason[sNum];
     const sInt = parseInt(sNum);
     const sInfo = tmdbSeasons.find(x => x.season_number === sInt);
-    const count = sInfo ? sInfo.episode_count : 10;
+    const val = perSeason[sNum];
 
-    if (val === 'all') {
-      watchedEps += count;
-    } else {
-      watchedEps += Math.max(0, val);
+    if (sInfo) {
+      const count = sInfo.episode_count;
+      if (val === 'all') watchedEps += count;
+      else watchedEps += Math.min(count, Math.max(0, val));
+    } else if (totalEps > 0) {
+      // Fallback if we don't have per-season info yet
+      if (val === 'all') watchedEps += 10; // Assume 10
+      else watchedEps += Math.max(0, val);
     }
   });
 
-  let percent = (watchedEps / totalEps) * 100;
-  return Math.min(98, percent);
+  const percent = (watchedEps / totalEps) * 100;
+  return Math.min(100, percent);
 }
 
 let netflixCategory = null;
