@@ -598,7 +598,7 @@ h3 {
 
 @media (hover: hover) and (pointer: fine) {
   .netflix-scroll .card {
-    transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1) 0s;
+    transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1) 0s;
   }
 
   /* Hovered card stays center but goes to front */
@@ -847,16 +847,16 @@ h3 {
 }
 
 .card-progress-bar {
-  height: 2px;
-  background: var(--border);
-  border-radius: 2px;
-  margin-top: 0.4rem;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  margin-top: 0.5rem;
   overflow: hidden
 }
 
 .card-progress-bar-fill {
   height: 100%;
-  border-radius: 2px;
+  border-radius: 4px;
   background: linear-gradient(90deg, #c9a84c, #f1d58a, #c9a84c) !important;
   background-size: 200% 100% !important;
   animation: barShine 3s linear infinite;

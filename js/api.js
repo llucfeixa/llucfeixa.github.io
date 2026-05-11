@@ -134,9 +134,12 @@ function buildPlatformBadge(detail) {
   const allowedProviders = {
     'Netflix': `https://www.netflix.com/`,
     'HBO Max': `https://play.hbomax.com/`,
+    'Max': `https://www.max.com/`,
     'Disney Plus': `https://www.disneyplus.com/es-es/`,
     'Amazon Prime Video': `https://www.primevideo.com/`,
-    'Movistar Plus+': `https://ver.movistarplus.es/`
+    'Movistar Plus+': `https://ver.movistarplus.es/`,
+    'Apple TV Plus': `https://tv.apple.com/`,
+    'SkyShowtime': `https://www.skyshowtime.com/`
   };
 
   const filteredProviders = uniqueProviders.filter(p => allowedProviders.hasOwnProperty(p.provider_name));

@@ -616,7 +616,7 @@ function renderDiscoverCard(s) {
   const date = s.first_air_date ? s.first_air_date.slice(0, 4) : '';
   const backdrop = s.backdrop_path ? `${IMG}${s.backdrop_path}` : poster;
 
-  return `<div class="card">
+  return `<div class="card" data-tmdb-id="${s.id}">
     <div class="card-poster" onclick="openModal('${s.id}', true)">
       ${poster ? `<img src="${poster}" alt="${s.name}" loading="lazy">` : `<div class="card-poster-placeholder"><span>📺</span><p>${s.name}</p></div>`}
       ${rating ? `<div class="card-rating">★${rating}</div>` : ''}
@@ -1001,6 +1001,17 @@ async function openModal(id, isTmdbId = false) {
   } else sb.style.display = 'none';
 
   document.getElementById('modalOverlay').classList.add('open');
+
+  // PRE-POPULATE from existing metadata to avoid flicker
+  if (show.tmdb) {
+    const t = show.tmdb;
+    if (t.backdrop_path) document.getElementById('modalBackdrop').src = `${BG}${t.backdrop_path}`;
+    if (t.overview) document.getElementById('modalOverview').textContent = t.overview;
+    if (t.first_air_date) document.getElementById('modalYear').textContent = t.first_air_date.slice(0, 4);
+    if (t.number_of_seasons) {
+        document.getElementById('modalExtraInfo').textContent = `${t.number_of_seasons} temp. · ${t.number_of_episodes || '?'} eps.`;
+    }
+  }
 
   const detail = await (isTmdbId ? tmdbDetail(id) : getShowDetail(show));
   if (detail) {
@@ -1559,12 +1570,15 @@ async function syncTMDBData() {
       
       if (localChange) {
         changesMade = true;
-        await saveDB(); 
-        updateStats(); 
-        renderSections(); 
       }
       await new Promise(res => setTimeout(res, 180));
     }
+  }
+
+  if (changesMade) {
+    await saveDB(); 
+    updateStats(); 
+    renderSections(); 
   }
 }
 
@@ -1821,11 +1835,7 @@ async function loadMoreSearch() {
     const grid = document.getElementById('discoverSearchGrid');
     if (grid) {
       const filtered = filterDiscoverResults(results);
-      const currentIds = new Set([...grid.querySelectorAll('.card-poster')].map(el => {
-        const attr = el.getAttribute('onclick');
-        const match = attr.match(/'(\d+)'/);
-        return match ? match[1] : null;
-      }));
+      const currentIds = new Set([...grid.querySelectorAll('.card')].map(el => el.dataset.tmdbId));
       const newHtml = filtered.filter(s => !currentIds.has(String(s.id))).map(s => renderDiscoverCard(s)).join('');
       grid.innerHTML += newHtml;
     }

@@ -82,7 +82,11 @@ firebase.auth().onAuthStateChanged(async user => {
 
   if (publicUid) {
     isPublicView = true;
-    const fireData = await fetchFromFirestore(publicUid);
+    const { data: fireData, error: fetchError } = await fetchFromFirestore(publicUid);
+    if (fetchError) {
+      showToast("Error de conexión al cargar perfil", "var(--red)");
+      return;
+    }
     if (fireData) {
       DB = fireData;
       publicUserName = "Usuario";
@@ -99,9 +103,14 @@ firebase.auth().onAuthStateChanged(async user => {
   } else if (user) {
     isPublicView = false;
     const localData = localStorage.getItem(SK);
-    const fireData = await fetchFromFirestore(user.uid);
+    const { data: fireData, error: fetchError } = await fetchFromFirestore(user.uid);
 
-    if (!fireData && localData) {
+    if (fetchError) {
+       // If there is an error, we do NOT load from local storage to avoid accidental overwrites later
+       // and we do NOT reset the DB. We just stop.
+       showToast("Error al sincronizar con la nube", "var(--red)");
+       DB = localData ? JSON.parse(localData) : { active: [], waiting: [], pending: [], done: [] };
+    } else if (!fireData && localData) {
       console.log("Migrating local data to new account...");
       DB = JSON.parse(localData);
       await saveDB();
@@ -126,11 +135,12 @@ async function fetchFromFirestore(uid) {
   try {
     const docRef = dbFirestore.collection("users").doc(uid);
     const docSnap = await docRef.get();
-    if (docSnap.exists) return docSnap.data().DB;
+    if (docSnap.exists) return { data: docSnap.data().DB, error: null };
+    return { data: null, error: null };
   } catch (e) {
     console.error("Firestore fetch error:", e);
+    return { data: null, error: e };
   }
-  return null;
 }
 
 async function loadDB() {
