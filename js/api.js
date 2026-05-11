@@ -97,6 +97,16 @@ async function tmdbSeason(showId, seasonNum) {
   } catch (e) { return null }
 }
 
+const tmdbEpisodeCache = {};
+async function tmdbEpisode(showId, seasonNum, epNum) {
+  const key = `${showId}_${seasonNum}_${epNum}`;
+  if (tmdbEpisodeCache[key]) return tmdbEpisodeCache[key];
+  try {
+    const r = await fetch(`https://api.themoviedb.org/3/tv/${showId}/season/${seasonNum}/episode/${epNum}?api_key=${TMDB_KEY}&language=es-ES`);
+    const d = await r.json(); tmdbEpisodeCache[key] = d; return d;
+  } catch (e) { return null }
+}
+
 async function getShowDetail(show) {
   if (show.tmdb && show.tmdb.id) return await tmdbDetail(show.tmdb.id);
   const basic = await tmdbSearch(show.title);

@@ -109,10 +109,10 @@ firebase.auth().onAuthStateChanged(async user => {
        // If there is an error, we do NOT load from local storage to avoid accidental overwrites later
        // and we do NOT reset the DB. We just stop.
        showToast("Error al sincronizar con la nube", "var(--red)");
-       DB = localData ? JSON.parse(localData) : { active: [], waiting: [], pending: [], done: [] };
+       DB = safeParseJSON(localData, { active: [], waiting: [], pending: [], done: [] });
     } else if (!fireData && localData) {
       console.log("Migrating local data to new account...");
-      DB = JSON.parse(localData);
+      DB = safeParseJSON(localData, { active: [], waiting: [], pending: [], done: [] });
       await saveDB();
     } else {
       DB = fireData || { active: [], waiting: [], pending: [], done: [] };
@@ -120,7 +120,7 @@ firebase.auth().onAuthStateChanged(async user => {
   } else {
     isPublicView = false;
     const localData = localStorage.getItem(SK);
-    DB = localData ? JSON.parse(localData) : { active: [], waiting: [], pending: [], done: [] };
+    DB = safeParseJSON(localData, { active: [], waiting: [], pending: [], done: [] });
   }
 
   if (typeof init === 'function') await init();
@@ -242,5 +242,14 @@ async function searchUsers(query) {
   } catch (e) { 
     console.error("Search error:", e);
     return []; 
+  }
+}
+function safeParseJSON(str, fallback) {
+  if (!str) return fallback;
+  try {
+    return JSON.parse(str);
+  } catch (e) {
+    console.error("JSON Parse Error:", e);
+    return fallback;
   }
 }
