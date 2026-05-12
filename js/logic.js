@@ -168,6 +168,38 @@ async function autoCorrectStatus(show, detail) {
     }
   }
 
+  // Case 4: Sync release date if missing or outdated (even if status doesn't change)
+  if (!isPublicView && (show.status === 'waiting' || show.status === 'active' || show.status === 'pending')) {
+    let newNextEp = null;
+    if (ne && ne.air_date) {
+      if (show.status === 'waiting' || show.status === 'pending') {
+        newNextEp = `T${ne.season_number} (${fmtDate(ne.air_date)})`;
+      } else if (show.status === 'active') {
+        newNextEp = `T${ne.season_number}E${ne.episode_number} (${fmtDate(ne.air_date)})`;
+      }
+    }
+
+    if (newNextEp && show.nextEp !== newNextEp) {
+      // Check if we are just adding a date to the same episode/season
+      const pOld = parseEp(show.nextEp);
+      const pNew = parseEp(newNextEp);
+      
+      // If it's the same season/episode, just update the date
+      if (pOld && pNew && pOld.s === pNew.s && pOld.e === pNew.e) {
+        show.nextEp = newNextEp;
+        return true;
+      }
+      
+      // Special case for 'waiting' where show.nextEp might just be 'T2'
+      if (show.status === 'waiting' && show.nextEp && !show.nextEp.includes('(')) {
+          if (pOld && pNew && pOld.s === pNew.s) {
+              show.nextEp = newNextEp;
+              return true;
+          }
+      }
+    }
+  }
+
   return false;
 }
 

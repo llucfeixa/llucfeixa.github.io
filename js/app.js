@@ -693,20 +693,33 @@ async function renderCalendar() {
   // Use a map to track processed IDs to avoid duplicates if a show is in multiple categories
   const processedIds = new Set();
 
+  let anyChange = false;
   for (const show of relevantShows) {
     if (processedIds.has(show.id)) continue;
     processedIds.add(show.id);
 
     const detail = await getShowDetail(show);
-    if (detail && detail.next_episode_to_air) {
-      const ne = detail.next_episode_to_air;
-      releases.push({
-        show,
-        ep: ne,
-        date: new Date(ne.air_date),
-        airDateStr: ne.air_date
-      });
+    if (detail) {
+      // Sync metadata (dates, status) while we have the detail
+      const corrected = await autoCorrectStatus(show, detail);
+      if (corrected) anyChange = true;
+
+      if (detail.next_episode_to_air) {
+        const ne = detail.next_episode_to_air;
+        releases.push({
+          show,
+          ep: ne,
+          date: new Date(ne.air_date),
+          airDateStr: ne.air_date
+        });
+      }
     }
+  }
+
+  if (anyChange) {
+    await saveDB();
+    updateStats();
+    // No need to re-render everything here, just proceed to render the calendar grid
   }
 
   // Sort by date (asc)
