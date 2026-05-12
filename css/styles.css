@@ -485,7 +485,8 @@ h3 {
 
 @media (max-width: 600px) {
   .calendar-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
   }
 }
 
@@ -495,9 +496,11 @@ h3 {
   border-radius: 10px;
   display: flex;
   align-items: center;
-  padding: 1rem;
-  gap: 1.2rem;
+  padding: 0.8rem;
+  gap: 0.9rem;
   transition: transform 0.2s, border-color 0.2s;
+  width: 100%;
+  min-width: 0;
 }
 
 .calendar-card:hover {
@@ -510,8 +513,8 @@ h3 {
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 8px;
-  min-width: 55px;
-  height: 55px;
+  min-width: 50px;
+  height: 50px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -520,58 +523,66 @@ h3 {
 }
 
 .cal-day {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--gold);
   font-family: 'Playfair Display', serif;
   line-height: 1;
 }
 
 .cal-month {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .cal-info {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 
 .cal-title {
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 
 .cal-ep {
-  font-size: 0.75rem;
-  color: var(--muted);
+  font-size: 0.7rem;
+  color: var(--green);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.9;
 }
 
 .cal-btn {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  color: var(--muted);
   padding: 0.4rem 0.8rem;
   border-radius: 6px;
+  background: rgba(201, 168, 76, 0.1);
+  border: 1px solid rgba(201, 168, 76, 0.3);
+  color: var(--gold);
   font-size: 0.75rem;
   cursor: pointer;
-  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
   font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  transition: all 0.2s;
 }
 
 .cal-btn:hover {
+  background: rgba(201, 168, 76, 0.25);
   border-color: var(--gold);
-  color: var(--gold);
-  background: rgba(201, 168, 76, 0.08);
 }
+
 
 .card {
   position: relative;
@@ -1730,28 +1741,7 @@ h3 {
   background: rgba(226, 84, 84, 0.3);
 }
 
-.calendar-card {
-  display: flex;
-  gap: 0.8rem;
-  padding: 0.7rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  align-items: center;
-}
-.cal-date {
-  width: 45px;
-  text-align: center;
-  background: var(--surface2);
-  padding: 0.4rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-}
-.cal-day { font-size: 1rem; font-weight: 700; color: var(--gold); font-family: 'Playfair Display', serif; }
-.cal-month { font-size: 0.6rem; text-transform: uppercase; color: var(--muted); }
-.cal-info { flex: 1; min-width: 0; }
-.cal-title { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cal-ep { font-size: 0.7rem; color: var(--green); margin-top: 1px; }
+
 
 .toast {
   position: fixed;
