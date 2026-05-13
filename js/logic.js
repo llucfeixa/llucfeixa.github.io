@@ -7,7 +7,7 @@ async function computeAdvance(show, detail) {
   const nextEpStr = show.nextEp || (parsed ? `T${parsed.s}E${parsed.e}` : 'T1E1');
   const pNext = parseEp(nextEpStr) || { s: 1, e: 1 };
   const newSeason = pNext.s;
-  const newEp = pNext.e;
+  const newEp = pNext.e || 1;
 
   const tmdbSeasons = (detail && detail.seasons || []).filter(s => s.season_number > 0 && s.episode_count > 0);
   const curSeaTmdb = tmdbSeasons.find(s => s.season_number === newSeason);
@@ -64,11 +64,14 @@ async function computeAdvance(show, detail) {
         return { newSeasons, newNextEp, newStatus: 'waiting', toastMsg: `⏳ T${newSeason} completada → esperando T${nextSeaNum}` };
       }
     } else {
-      if (tmdbSt === 'Ended' || tmdbSt === 'Canceled') {
+      // No next season in TMDB. If current season is the last one, mark as done
+      const maxTmdbSeason = Math.max(...tmdbSeasons.map(s => s.season_number), 0);
+      if (newSeason >= maxTmdbSeason && (!ne || ne.season_number <= newSeason)) {
         const allSeasons = tmdbSeasons.map(s => `T${s.season_number}`);
         return { newSeasons: allSeasons, newNextEp: null, newStatus: 'done', toastMsg: `✅ Serie completada` };
       }
-      // No news about next season
+
+      // Fallback to waiting if we think there might be more
       let newNextEp = `T${nextSeaNum}`;
       if (ne && ne.air_date) newNextEp = `T${ne.season_number} (${fmtDate(ne.air_date)})`;
       return { newSeasons, newNextEp, newStatus: 'waiting', toastMsg: `⏳ T${newSeason} completada → esperando anuncios` };
@@ -95,11 +98,9 @@ function inferStatus(seaList, detail, manual) {
   const nextSeaNum = curSeason + 1;
   const nextSeaTmdb = tmdbSeasons.find(s => s.season_number === nextSeaNum);
   const tmdbSt = detail.status;
-  if (nextSeaTmdb) {
-    if (ne && ne.season_number === nextSeaNum && ne.episode_number === 1) return 'waiting';
-    return 'waiting';
-  }
-  if (tmdbSt === 'Ended' || tmdbSt === 'Canceled') return 'done';
+  if (nextSeaTmdb) return 'waiting';
+  const maxTmdbSeason = Math.max(...tmdbSeasons.map(s => s.season_number), 0);
+  if (curSeason >= maxTmdbSeason && (!ne || ne.season_number <= curSeason)) return 'done';
   return 'waiting';
 }
 
@@ -119,7 +120,7 @@ async function autoCorrectStatus(show, detail) {
   const ne = detail.next_episode_to_air;
   const tmdbSt = detail.status;
 
-  let atEnd = (totalEps !== null && curEp >= totalEps);
+  let atEnd = (totalEps !== null && (curEp === null || curEp >= totalEps));
   if (ne && ne.season_number === curSeason && ne.episode_number > (curEp || 0)) atEnd = false;
 
   const today = new Date().toLocaleDateString('en-CA');
@@ -151,10 +152,22 @@ async function autoCorrectStatus(show, detail) {
     if (nextSeaTmdb) {
         const firstEpNext = await tmdbEpisode(detail.id, nextSeaNum, 1);
         const firstDate = firstEpNext ? firstEpNext.air_date : null;
+        if (firstDate && firstDate <= today) {
+            // Next season is already out, stay active and update nextEp
+            const newNext = `T${nextSeaNum}E1`;
+            if (show.nextEp !== newNext) { show.nextEp = newNext; return true; }
+            return false;
+        }
         const nxt = firstDate ? `T${nextSeaNum} (${fmtDate(firstDate)})` : `T${nextSeaNum}`;
         moveTo(show, 'waiting', nxt); return true;
     } else {
-      if (tmdbSt === 'Ended' || tmdbSt === 'Canceled') {
+      const maxTmdbSeason = Math.max(...tmdbSeasons.map(s => s.season_number), 0);
+      if (curSeason >= maxTmdbSeason && (!ne || ne.season_number <= curSeason)) {
+        // Only move to done if we are not currently watching this season as 'active'
+        // or if we have explicitly marked the last episode as seen.
+        if (show.status === 'active' && show.nextEp && parseEp(show.nextEp).s === curSeason) {
+           return false; // Stay active on the current season
+        }
         moveTo(show, 'done', null); return true;
       }
       moveTo(show, 'waiting', `T${nextSeaNum}`); return true;
@@ -200,6 +213,15 @@ async function autoCorrectStatus(show, detail) {
     }
   }
 
+  // Case 5: Ensure active shows have episode number
+  if (show.status === 'active' && show.nextEp && !show.nextEp.includes('E')) {
+    const p = parseEp(show.nextEp);
+    if (p && p.s) {
+       show.nextEp = `T${p.s}E1`;
+       return true;
+    }
+  }
+
   return false;
 }
 
@@ -231,7 +253,11 @@ function checkAutoMove() {
         removeFromDB(s.id);
         s.status = 'active';
         // Clean nextEp from the date string for active status
-        if (s.nextEp) s.nextEp = s.nextEp.split(' (')[0];
+        if (s.nextEp) {
+          s.nextEp = s.nextEp.split(' (')[0];
+          // If it only has the season (e.g. "T3"), append "E1"
+          if (s.nextEp && !s.nextEp.includes('E')) s.nextEp += 'E1';
+        }
         if (cat === 'pending' && !s.nextEp) s.nextEp = 'T1E1';
         DB.active.push(s);
         count++;
