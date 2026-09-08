@@ -4,10 +4,10 @@ async function computeAdvance(show, detail) {
   const last = seasons.length ? seasons[seasons.length - 1] : null;
   const parsed = last ? parseEp(last) : null;
 
-  const nextEpStr = show.nextEp || (parsed ? `T${parsed.s}E${parsed.e}` : 'T1E1');
+  const nextEpStr = show.nextEp || (parsed ? `T${parsed.s}E${parsed.e || 1}` : 'T1E1');
   const pNext = parseEp(nextEpStr) || { s: 1, e: 1 };
   const newSeason = pNext.s;
-  const newEp = pNext.e;
+  const newEp = pNext.e || 1;
 
   const tmdbSeasons = (detail && detail.seasons || []).filter(s => s.season_number > 0 && s.episode_count > 0);
   const curSeaTmdb = tmdbSeasons.find(s => s.season_number === newSeason);
@@ -52,9 +52,9 @@ async function computeAdvance(show, detail) {
 
     if (nextSeaTmdb) {
       let ep1Aired = true, ep1Date = null;
-      if (ne && ne.season_number === nextSeaNum && ne.episode_number === 1) {
+      if ((ne && ne.season_number === nextSeaNum && ne.episode_number === 1) || (nextSeaTmdb.air_date && nextSeaTmdb.air_date > today)) {
         ep1Aired = false;
-        ep1Date = ne.air_date ? fmtDate(ne.air_date) : null;
+        ep1Date = ne && ne.air_date ? fmtDate(ne.air_date) : (nextSeaTmdb.air_date ? fmtDate(nextSeaTmdb.air_date) : null);
       }
       if (!ep1Aired) {
         const newNextEp = ep1Date ? `T${nextSeaNum} (${ep1Date})` : `T${nextSeaNum}`;
@@ -90,7 +90,7 @@ function inferStatus(seaList, detail, manual) {
   const totalEps = curSeaTmdb ? curSeaTmdb.episode_count : null;
   const ne = detail.next_episode_to_air;
 
-  let atEnd = curEp === null;
+  let atEnd = curEp === null || (totalEps !== null && curEp >= totalEps);
   if (ne && ne.season_number === curSeason && ne.episode_number > (curEp || 0)) atEnd = false;
 
   if (!atEnd) return 'active';
@@ -128,7 +128,8 @@ async function autoCorrectStatus(show, detail) {
       const parsed = last ? parseEp(last) : null;
       const curSeason = parsed ? parsed.s : 0;
       const tmdbSeasons = (detail.seasons || []).filter(s => s.season_number > 0 && s.episode_count > 0);
-      if (tmdbSeasons.some(s => s.season_number > curSeason) || (ne && ne.season_number > curSeason)) {
+      const maxTmdbSea = tmdbSeasons.length ? Math.max(...tmdbSeasons.map(s => s.season_number)) : 0;
+      if (curSeason >= maxTmdbSea || tmdbSeasons.some(s => s.season_number > curSeason) || (ne && ne.season_number > curSeason)) {
         const nxt = ne && ne.air_date ? `T${ne.season_number} (${fmtDate(ne.air_date)})` : `T${curSeason + 1}`;
         moveTo(show, 'waiting', nxt); return true;
       }
@@ -172,8 +173,12 @@ async function autoCorrectStatus(show, detail) {
   }
 
   if (show.status === 'active') {
-    // Also update date if we are in active and next ep is announced
-    if (ne && ne.air_date) {
+    const seasons = show.seasons || []; if (!seasons.length) return false;
+    const last = seasons[seasons.length - 1]; const parsed = parseEp(last); if (!parsed) return false;
+    const { s: curSeason, e: curEp } = parsed;
+
+    // Also update date if we are in active and next ep is announced for current season
+    if (ne && ne.air_date && ne.season_number === curSeason) {
       const newNext = `T${ne.season_number}E${ne.episode_number} (${fmtDate(ne.air_date)})`;
       if (show.nextEp !== newNext) {
         show.nextEp = newNext;
@@ -181,13 +186,10 @@ async function autoCorrectStatus(show, detail) {
       }
     }
 
-    const seasons = show.seasons || []; if (!seasons.length) return false;
-    const last = seasons[seasons.length - 1]; const parsed = parseEp(last); if (!parsed) return false;
-    const { s: curSeason, e: curEp } = parsed;
     const tmdbSeasons = (detail.seasons || []).filter(s => s.season_number > 0 && s.episode_count > 0);
     const curSeaTmdb = tmdbSeasons.find(s => s.season_number === curSeason);
     const totalEps = curSeaTmdb ? curSeaTmdb.episode_count : null;
-    let atEnd = curEp === null;
+    let atEnd = curEp === null || (totalEps !== null && curEp >= totalEps);
     if (ne && ne.season_number === curSeason && ne.episode_number > (curEp || 0)) atEnd = false;
 
     if (atEnd) {

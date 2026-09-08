@@ -1201,7 +1201,7 @@ async function openEdit(id) {
     let can = true;
     if (isFuture) can = (val === 'waiting');
     else if (isEnded) can = (val !== 'waiting');
-    else if (isAiring) can = (val === 'active' || val === 'pending');
+    else if (isAiring) can = (val !== 'done');
     else if (isWaitingSeason) can = (val !== 'done');
 
     opt.disabled = !can;
@@ -1421,20 +1421,15 @@ function togglePickerGroup() {
   const statusEl = document.getElementById('editStatus');
   const waitingOpt = statusEl.querySelector('option[value="waiting"]');
   if (editTmdbDetail) {
-    const isReturning = ['Returning Series', 'In Production', 'Planned'].includes(editTmdbDetail.status);
-    const ne = editTmdbDetail.next_episode_to_air;
+    const tmdbSt = (editTmdbDetail.status || '').toLowerCase();
+    const isEnded = tmdbSt.includes('end') || tmdbSt.includes('cancel');
 
-    // Valid waiting condition:
-    // 1. Returning series but no episode announced yet
-    // 2. Or, the next episode to air is the first episode of a season
-    const isValidWaiting = (isReturning && !ne) || (ne && ne.episode_number === 1);
-
-    if (isValidWaiting) {
+    if (!isEnded) {
       waitingOpt.disabled = false;
     } else {
       waitingOpt.disabled = true;
       if (statusEl.value === 'waiting') {
-        statusEl.value = (ne && ne.episode_number > 1) ? 'active' : 'done';
+        statusEl.value = 'done';
       }
     }
   } else {
