@@ -1288,8 +1288,14 @@ async function saveShow() {
         if (nextSeaTmdb) {
           nextEp = `T${sNum + 1}E1`;
         } else {
-          status = (editTmdbDetail && (editTmdbDetail.status === 'Ended' || editTmdbDetail.status === 'Canceled')) ? 'done' : 'waiting';
-          nextEp = `T${sNum + 1}`;
+          const isEnded = editTmdbDetail && (editTmdbDetail.status === 'Ended' || editTmdbDetail.status === 'Canceled');
+          if (isEnded) {
+            status = 'done';
+            nextEp = null;
+          } else {
+            status = 'waiting';
+            nextEp = `T${sNum + 1}`;
+          }
         }
       } else if (eVal) {
         const eNum = parseInt(eVal);
