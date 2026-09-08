@@ -1280,11 +1280,29 @@ async function saveShow() {
       const sNum = parseInt(sVal);
       const ns = [];
       for (let s = 1; s < sNum; s++) ns.push(`T${s}`);
-      if (eVal === 'all' || !eVal) ns.push(`T${sNum}`);
-      else ns.push(`T${sNum}E${eVal}`);
-      editSeasons = ns;
+      if (eVal === 'all') {
+        ns.push(`T${sNum}`);
+        editSeasons = ns;
+        const tmdbSeasons = (editTmdbDetail && editTmdbDetail.seasons || []).filter(s => s.season_number > 0 && s.episode_count > 0);
+        const nextSeaTmdb = tmdbSeasons.find(s => s.season_number === sNum + 1);
+        if (nextSeaTmdb) {
+          nextEp = `T${sNum + 1}E1`;
+        } else {
+          status = (editTmdbDetail && (editTmdbDetail.status === 'Ended' || editTmdbDetail.status === 'Canceled')) ? 'done' : 'waiting';
+          nextEp = `T${sNum + 1}`;
+        }
+      } else if (eVal) {
+        const eNum = parseInt(eVal);
+        if (eNum > 1) ns.push(`T${sNum}E${eNum - 1}`);
+        editSeasons = ns;
+        nextEp = `T${sNum}E${eNum}`;
+      } else {
+        editSeasons = ns;
+        nextEp = `T${sNum}E1`;
+      }
     } else {
       editSeasons = [];
+      nextEp = 'T1E1';
     }
   } else if (status === 'pending') {
     editSeasons = [];
@@ -1313,22 +1331,6 @@ async function saveShow() {
     nextEp = null;
   }
   if (status === 'active') {
-    if (editingId) {
-      const ex = findShow(editingId);
-      if (ex && ex.nextEp && JSON.stringify(ex.seasons) === JSON.stringify(editSeasons)) nextEp = ex.nextEp;
-    }
-    if (!nextEp) {
-      if (editSeasons.length) {
-        const last = editSeasons[editSeasons.length - 1];
-        const p = parseEp(last);
-        if (p && p.e === null) nextEp = `T${p.s + 1}E1`;
-        else nextEp = last;
-      } else {
-        nextEp = 'T1E1';
-        editSeasons = ['T1E1'];
-      }
-    }
-
     // Añadir fecha si es hoy o futuro al guardar desde el editor
     if (nextEp && nextEp.includes('E')) {
       const p = parseEp(nextEp);
