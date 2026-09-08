@@ -215,14 +215,7 @@ async function autoCorrectStatus(show, detail) {
   return false;
 }
 
-function moveTo(show, newStatus, nextEp) {
-  const old = findCat(show.id);
-  if (!old) return;
-  DB[old] = DB[old].filter(s => String(s.id) !== String(show.id));
-  show.status = newStatus;
-  show.nextEp = nextEp;
-  DB[newStatus].push(show);
-}
+
 
 function checkAutoMove() {
   const now = new Date(), ids = [];

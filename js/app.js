@@ -32,10 +32,12 @@ function isDuplicate(title, excludeId = null, tmdbId = null) {
 
 function moveTo(show, newStatus, newNextEp) {
   const old = findCat(show.id);
-  DB[old] = DB[old].filter(s => s.id !== show.id);
+  if (old && DB[old]) {
+    DB[old] = DB[old].filter(s => String(s.id) !== String(show.id));
+  }
   show.status = newStatus;
   if (newNextEp !== undefined) show.nextEp = newNextEp;
-  DB[newStatus].push(show);
+  if (DB[newStatus]) DB[newStatus].push(show);
 }
 
 // ── RENDER ────────────────────────────────────────
