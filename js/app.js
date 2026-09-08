@@ -111,15 +111,15 @@ function calculateProgress(show) {
   if (!show.seasons || !show.seasons.length) return 0;
   if (!show.tmdb || !show.tmdb.number_of_episodes) return 0;
 
-  const totalEps = show.tmdb.number_of_episodes;
+  const tmdbSeasons = (show.tmdb.seasons || []).filter(s => s.season_number > 0);
+  const totalEps = tmdbSeasons.reduce((sum, s) => sum + s.episode_count, 0) || show.tmdb.number_of_episodes;
+  
   let watchedEps = 0;
-  const tmdbSeasons = show.tmdb.seasons || [];
-
-  // Agrupamos por temporada para no contar de más
   const perSeason = {};
+
   show.seasons.forEach(tag => {
     const p = parseEp(tag);
-    if (!p) return;
+    if (!p || p.s === 0) return; // Ignore specials (Season 0)
     if (p.e === null) {
       perSeason[p.s] = 'all';
     } else {
@@ -130,20 +130,23 @@ function calculateProgress(show) {
   });
 
   Object.keys(perSeason).forEach(sNum => {
-    const val = perSeason[sNum];
     const sInt = parseInt(sNum);
     const sInfo = tmdbSeasons.find(x => x.season_number === sInt);
-    const count = sInfo ? sInfo.episode_count : 10;
+    const val = perSeason[sNum];
 
-    if (val === 'all') {
-      watchedEps += count;
-    } else {
-      watchedEps += Math.max(0, val);
+    if (sInfo) {
+      const count = sInfo.episode_count;
+      if (val === 'all') watchedEps += count;
+      else watchedEps += Math.min(count, Math.max(0, val));
+    } else if (totalEps > 0) {
+      // Fallback if we don't have per-season info yet
+      if (val === 'all') watchedEps += 10; // Assume 10
+      else watchedEps += Math.max(0, val);
     }
   });
 
-  let percent = (watchedEps / totalEps) * 100;
-  return Math.min(98, percent);
+  const percent = (watchedEps / totalEps) * 100;
+  return Math.min(100, percent);
 }
 
 let netflixCategory = null;
@@ -613,7 +616,7 @@ function renderDiscoverCard(s) {
   const date = s.first_air_date ? s.first_air_date.slice(0, 4) : '';
   const backdrop = s.backdrop_path ? `${IMG}${s.backdrop_path}` : poster;
 
-  return `<div class="card">
+  return `<div class="card" data-tmdb-id="${s.id}">
     <div class="card-poster" onclick="openModal('${s.id}', true)">
       ${poster ? `<img src="${poster}" alt="${s.name}" loading="lazy">` : `<div class="card-poster-placeholder"><span>📺</span><p>${s.name}</p></div>`}
       ${rating ? `<div class="card-rating">★${rating}</div>` : ''}
@@ -690,20 +693,33 @@ async function renderCalendar() {
   // Use a map to track processed IDs to avoid duplicates if a show is in multiple categories
   const processedIds = new Set();
 
+  let anyChange = false;
   for (const show of relevantShows) {
     if (processedIds.has(show.id)) continue;
     processedIds.add(show.id);
 
     const detail = await getShowDetail(show);
-    if (detail && detail.next_episode_to_air) {
-      const ne = detail.next_episode_to_air;
-      releases.push({
-        show,
-        ep: ne,
-        date: new Date(ne.air_date),
-        airDateStr: ne.air_date
-      });
+    if (detail) {
+      // Sync metadata (dates, status) while we have the detail
+      const corrected = await autoCorrectStatus(show, detail);
+      if (corrected) anyChange = true;
+
+      if (detail.next_episode_to_air) {
+        const ne = detail.next_episode_to_air;
+        releases.push({
+          show,
+          ep: ne,
+          date: new Date(ne.air_date),
+          airDateStr: ne.air_date
+        });
+      }
     }
+  }
+
+  if (anyChange) {
+    await saveDB();
+    updateStats();
+    // No need to re-render everything here, just proceed to render the calendar grid
   }
 
   // Sort by date (asc)
@@ -998,6 +1014,17 @@ async function openModal(id, isTmdbId = false) {
   } else sb.style.display = 'none';
 
   document.getElementById('modalOverlay').classList.add('open');
+
+  // PRE-POPULATE from existing metadata to avoid flicker
+  if (show.tmdb) {
+    const t = show.tmdb;
+    if (t.backdrop_path) document.getElementById('modalBackdrop').src = `${BG}${t.backdrop_path}`;
+    if (t.overview) document.getElementById('modalOverview').textContent = t.overview;
+    if (t.first_air_date) document.getElementById('modalYear').textContent = t.first_air_date.slice(0, 4);
+    if (t.number_of_seasons) {
+        document.getElementById('modalExtraInfo').textContent = `${t.number_of_seasons} temp. · ${t.number_of_episodes || '?'} eps.`;
+    }
+  }
 
   const detail = await (isTmdbId ? tmdbDetail(id) : getShowDetail(show));
   if (detail) {
@@ -1551,12 +1578,15 @@ async function syncTMDBData() {
       
       if (localChange) {
         changesMade = true;
-        await saveDB(); 
-        updateStats(); 
-        renderSections(); 
       }
       await new Promise(res => setTimeout(res, 180));
     }
+  }
+
+  if (changesMade) {
+    await saveDB(); 
+    updateStats(); 
+    renderSections(); 
   }
 }
 
@@ -1813,11 +1843,7 @@ async function loadMoreSearch() {
     const grid = document.getElementById('discoverSearchGrid');
     if (grid) {
       const filtered = filterDiscoverResults(results);
-      const currentIds = new Set([...grid.querySelectorAll('.card-poster')].map(el => {
-        const attr = el.getAttribute('onclick');
-        const match = attr.match(/'(\d+)'/);
-        return match ? match[1] : null;
-      }));
+      const currentIds = new Set([...grid.querySelectorAll('.card')].map(el => el.dataset.tmdbId));
       const newHtml = filtered.filter(s => !currentIds.has(String(s.id))).map(s => renderDiscoverCard(s)).join('');
       grid.innerHTML += newHtml;
     }

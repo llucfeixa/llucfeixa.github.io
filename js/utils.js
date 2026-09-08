@@ -15,7 +15,15 @@ function parseDate(str) {
   const m = str.match(/\((\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\)/);
   if (!m) return null;
   const day = parseInt(m[1]), mon = parseInt(m[2]) - 1;
-  const yr = m[3] ? parseInt(m[3].length === 2 ? '20' + m[3] : m[3]) : (new Date()).getFullYear();
+  const now = new Date();
+  let yr = m[3] ? parseInt(m[3].length === 2 ? '20' + m[3] : m[3]) : now.getFullYear();
+  
+  // Bug fix: If year is omitted and date is more than 6 months in the past, it's likely for next year
+  // (e.g. searching for Jan in Dec)
+  if (!m[3]) {
+    const d = new Date(yr, mon, day);
+    if (now - d > 1000 * 60 * 60 * 24 * 180) yr++;
+  }
   return new Date(yr, mon, day);
 }
 
