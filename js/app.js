@@ -932,7 +932,7 @@ async function startWatching(id) {
   const old = findCat(id);
   DB[old] = DB[old].filter(s => s.id !== id);
   show.status = 'active';
-  show.seasons = ['T1E1'];
+  show.seasons = [];
   show.nextEp = 'T1E1';
   DB['active'].push(show);
 
@@ -1085,7 +1085,9 @@ async function openModal(id, isTmdbId = false) {
       await saveDB(); updateStats(); renderSections();
       const nc = sc(show.status);
       document.getElementById('modalBadge').innerHTML = `<span class="badge ${nc.badge}" style="margin-bottom:0.4rem">${nc.label}</span>`;
+      document.getElementById('modalNextEpVal').textContent = show.nextEp || '—';
       document.getElementById('modalNextEpBlock').style.display = show.status === 'active' ? 'block' : 'none';
+      renderModalSeasons(show);
       showToast('🔄 Estado actualizado según TMDB');
     }
 
@@ -1487,7 +1489,10 @@ async function init() {
     const saved = await loadDB();
     DB = saved || { active: [], waiting: [], pending: [], done: [] };
     const moved = (!isPublicView) ? checkAutoMove() : 0;
-    if (moved) showToast(`📺 ${moved} serie${moved > 1 ? 's' : ''} pasada${moved > 1 ? 's' : ''} a "En curso"`);
+    if (moved) {
+      await saveDB();
+      showToast(`📺 ${moved} serie${moved > 1 ? 's' : ''} pasada${moved > 1 ? 's' : ''} a "En curso"`);
+    }
     updateStats(); renderSections();
 
     // Sync TMDB data in background (only for own library)
