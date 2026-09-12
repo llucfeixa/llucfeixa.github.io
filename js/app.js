@@ -1,7 +1,7 @@
 // ── STATE ─────────────────────────────────────────
 let DB = { active: [], waiting: [], pending: [], done: [] };
 let tmdbCache = {}, tmdbDetailCache = {};
-let currentFilter = 'all', isGridView = true, currentView = 'my-series';
+let currentFilter = 'all', isGridView = true, isPosterWall = false, currentView = 'my-series';
 let editingId = null, editSeasons = [], editTmdbDetail = null, trendingCache = [], topRatedCache = [], genreCache = null;
 let tmdbTimer = null, discoverTimer = null, openModalId = null, currentGenreId = null;
 let trendingPage = 1, topRatedPage = 1, searchPage = 1;
@@ -58,7 +58,7 @@ function createCard(show) {
   <div class="list-thumb" onclick="openModal('${id}')">${poster ? `<img src="${poster}" alt="" loading="lazy">` : '📺'}</div>
   <div class="list-info" onclick="openModal('${id}')">
     <div class="list-title">${show.title}</div>
-    <div class="list-sub">${show.nextEp ? `Pendiente: <strong>${show.nextEp}</strong>` : (show.status === 'done' ? `Visto: <strong>Completa</strong>` : `Visto: ${last || '—'}`)}</div>
+    <div class="list-sub">${show.nextEp ? `Pendiente: <strong>${show.nextEp}</strong>${relativeDaysLabel(show.nextEp) ? ` <span class="next-ep-countdown">${relativeDaysLabel(show.nextEp)}</span>` : ''}` : (show.status === 'done' ? `Visto: <strong>Completa</strong>` : `Visto: ${last || '—'}`)}</div>
   </div>
   <div class="list-right">
     <span class="badge ${cfg.badge}">${cfg.label}</span>
@@ -84,6 +84,7 @@ function createCard(show) {
 <div class="card-body" onclick="openModal('${id}')">
   <div class="card-title">${show.title}</div>
   <div class="card-meta"><span class="card-ep">${show.status === 'done' ? (last ? `${last}` : 'Completa') : (show.nextEp || last || 'Sin empezar')}</span><div class="card-status-dot" style="background:${cfg.dot}"></div></div>
+  ${show.status !== 'done' && relativeDaysLabel(show.nextEp) ? `<span class="next-ep-countdown">${relativeDaysLabel(show.nextEp)}</span>` : ''}
   ${show.seasons && show.seasons.length ? `<div class="card-progress-bar"><div class="card-progress-bar-fill" style="width:${progress}%;background:var(--gold)"></div></div>` : ''}
 </div>
 
@@ -153,6 +154,11 @@ function calculateProgress(show) {
 
 let netflixCategory = null;
 let savedScrollPos = 0;
+
+function togglePosterWall() {
+  isPosterWall = !isPosterWall;
+  renderSections();
+}
 
 function openCategoryView(cat) {
   if (cat !== null) {
@@ -325,8 +331,9 @@ function renderSections() {
       <div class="section-title" style="color:${cfg.dot}">${cfg.label}</div>
       <span class="section-count">${shows.length}</span>
       <div class="section-line"></div>
+      ${netflixCategory ? `<button class="btn btn-ghost" style="padding:0.3rem 0.6rem;" onclick="togglePosterWall()" aria-pressed="${isPosterWall}" title="Vista pared de pósters">${isPosterWall ? '▦ Cuadrícula' : '🖼 Pared'}</button>` : ''}
     </div>
-    <div class="grid">${shows.map(s => createCard(s)).join('')}</div>
+    <div class="grid${isPosterWall ? ' poster-wall' : ''}">${shows.map(s => createCard(s)).join('')}</div>
   </div>`;
     }
     con.innerHTML = html || '<div class="no-results">🎬 No se encontraron series</div>';
@@ -365,7 +372,12 @@ function renderSections() {
 </div>`;
   }
 
-  con.innerHTML = html || '<div class="no-results">🎬 No se encontraron series</div>';
+  con.innerHTML = html || `<div class="empty-state">
+    <i class="empty-state-icon">🎬</i>
+    <p class="empty-state-title">Aún no has añadido series</p>
+    <p class="empty-state-body">Explora el catálogo y empieza tu cineteca</p>
+    <button class="btn btn-primary" onclick="switchView('discover')">Explorar series</button>
+  </div>`;
   setTimeout(initNetflixRows, 100);
 }
 

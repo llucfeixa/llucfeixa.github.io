@@ -49,6 +49,22 @@ function tmdbDatePast(dateStr) {
   return d <= new Date();
 }
 
+// Returns a short relative-days label ("en 3 días", "mañana", "hoy") for a
+// nextEp string like "T3 (12/10/2026)", or '' if there's no parseable
+// future date. Only used for upcoming (future) dates — past dates return ''.
+function relativeDaysLabel(nextEpStr) {
+  const target = parseDate(nextEpStr);
+  if (!target) return '';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const t = new Date(target); t.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((t - today) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return '';
+  if (diffDays === 0) return 'hoy';
+  if (diffDays === 1) return 'mañana';
+  return `en ${diffDays} días`;
+}
+
 // ── SORTING ───────────────────────────────────────
 function sortedShows(cat, shows) {
   if (cat === 'waiting') {

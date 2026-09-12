@@ -1640,6 +1640,87 @@ h3 {
   font-size: 0.88rem
 }
 
+.next-ep-countdown {
+  display: inline-block;
+  background: rgba(201, 168, 76, 0.15);
+  color: var(--gold2);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 20px;
+  margin-top: 0.3rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.empty-state-icon {
+  font-style: normal;
+  font-size: 2.6rem;
+  margin-bottom: 0.4rem;
+  filter: grayscale(0.15);
+}
+
+.empty-state-title {
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.empty-state-body {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0 0 0.6rem;
+  max-width: 260px;
+}
+
+/* Modal backdrop: slow "ken burns" zoom while the modal is open */
+.modal-hero img#modalBackdrop {
+  animation: modalHeroZoom 12s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+
+@keyframes modalHeroZoom {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-hero img#modalBackdrop { animation: none; }
+}
+
+/* Poster-wall view: dense, image-only grid */
+.grid.poster-wall {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 0.6rem;
+}
+
+.grid.poster-wall .card {
+  background: none;
+}
+
+.grid.poster-wall .card-body,
+.grid.poster-wall .card-hover-popout {
+  display: none;
+}
+
+.grid.poster-wall .card-poster {
+  border-radius: 6px;
+  transition: transform 0.15s ease;
+}
+
+.grid.poster-wall .card-poster:hover {
+  transform: scale(1.04);
+}
+
 /* NEW STYLES */
 .genre-filters {
   display: flex;
