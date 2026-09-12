@@ -1,5 +1,9 @@
 // ── HELPERS & UTILS ────────────────────────────────
-function genId() { return 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5) }
+function genId() {
+  if (window.crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  // Fallback for older browsers without crypto.randomUUID
+  return 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
 
 function showToast(m, color) {
   const t = document.getElementById('toast');

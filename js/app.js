@@ -975,6 +975,7 @@ async function openModal(id, isTmdbId = false) {
   document.getElementById('modalExtraInfo').textContent = '';
   document.getElementById('modalOverview').textContent = 'Cargando...';
   document.getElementById('modalBackdrop').src = '';
+  document.getElementById('modalBackdrop').alt = show.title ? `Imagen de fondo de ${show.title}` : '';
   document.getElementById('modalLinkWrap').innerHTML = '';
   document.getElementById('modalTmdbNextEp').style.display = 'none';
   document.getElementById('modalTmdbNextEp').innerHTML = '';
@@ -1455,6 +1456,67 @@ document.getElementById('editCancelBtn').addEventListener('click', closeEdit);
 document.getElementById('editOverlay').addEventListener('click', e => { if (e.target === document.getElementById('editOverlay')) closeEdit(); });
 document.getElementById('editTitle').addEventListener('input', () => { document.getElementById('dupWarning').style.display = 'none'; });
 document.getElementById('discoverSearchInput').addEventListener('input', handleDiscoverSearch);
+
+// ── ACCESSIBILITY: Escape-to-close + focus handling for all overlays ──
+// Maps each overlay's id to its close function. Functions are wrapped in
+// arrows so the actual identifiers (some, like closeLogin, live in
+// storage.js which loads AFTER this file) are only looked up when called,
+// not at script-parse time.
+const OVERLAY_CLOSE_FNS = [
+  ['confirmOverlay', () => closeConfirm()],
+  ['settingsOverlay', () => closeSettings()],
+  ['shareOverlay', () => closeShareModal()],
+  ['editOverlay', () => closeEdit()],
+  ['modalOverlay', () => closeModal()],
+  ['loginOverlay', () => closeLogin()],
+];
+
+let lastFocusedEl = null;
+
+function getOpenOverlayId() {
+  for (const [id] of OVERLAY_CLOSE_FNS) {
+    const el = document.getElementById(id);
+    if (el && el.classList.contains('open')) return id;
+  }
+  return null;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const openId = getOpenOverlayId();
+  if (!openId) return;
+  const entry = OVERLAY_CLOSE_FNS.find(([id]) => id === openId);
+  if (entry) entry[1]();
+});
+
+// When any overlay opens, remember what had focus and move focus into the
+// overlay's close/first focusable element; restore focus on close.
+new MutationObserver(mutations => {
+  for (const m of mutations) {
+    const el = m.target;
+    if (!(el instanceof HTMLElement) || !el.classList.contains('open')) continue;
+    if (!OVERLAY_CLOSE_FNS.some(([id]) => id === el.id)) continue;
+    lastFocusedEl = document.activeElement;
+    const focusable = el.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (focusable) setTimeout(() => focusable.focus(), 50);
+  }
+}).observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
+
+document.addEventListener('overlayclosed', () => {
+  if (lastFocusedEl && typeof lastFocusedEl.focus === 'function') lastFocusedEl.focus();
+  lastFocusedEl = null;
+});
+
+// Wrap each close function so it fires 'overlayclosed' for focus restoration,
+// without altering any of the app's existing close behavior.
+for (const [id, fn] of OVERLAY_CLOSE_FNS) {
+  const idx = OVERLAY_CLOSE_FNS.findIndex(e => e[0] === id);
+  const original = fn;
+  OVERLAY_CLOSE_FNS[idx][1] = (...args) => {
+    original(...args);
+    document.dispatchEvent(new CustomEvent('overlayclosed'));
+  };
+}
 
 function togglePickerGroup() {
   const statusEl = document.getElementById('editStatus');

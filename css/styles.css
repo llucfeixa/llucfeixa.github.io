@@ -18,7 +18,7 @@ html, body {
   --gold: #c9a84c;
   --gold2: #e8c96d;
   --text: #e8e8f0;
-  --muted: #6b6b85;
+  --muted: #8a8aa8;
   --red: #e25454;
   --green: #4caf7d;
   --blue: #5b9bd5;
@@ -32,6 +32,19 @@ body {
   font-family: 'DM Sans', sans-serif;
   overflow-x: hidden;
   min-height: 100vh;
+}
+
+/* Accessible keyboard-focus indicator. Uses :focus-visible so mouse clicks
+   don't show a ring, but Tab navigation always does. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* Custom Elegant Scrollbar */

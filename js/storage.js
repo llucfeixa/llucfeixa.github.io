@@ -123,7 +123,14 @@ firebase.auth().onAuthStateChanged(async user => {
     DB = safeParseJSON(localData, { active: [], waiting: [], pending: [], done: [] });
   }
 
-  if (typeof init === 'function') await init();
+  try {
+    if (typeof init === 'function') await init();
+  } catch (e) {
+    // Never let an init failure leave the user stuck on the loading screen
+    // forever with no explanation.
+    console.error("Init error:", e);
+    showToast("Ha ocurrido un error al cargar la app. Prueba a recargar la página.", "var(--red)");
+  }
 
   if (loading) {
     loading.classList.remove('open');
@@ -163,6 +170,7 @@ async function saveDB() {
       }, { merge: true });
     } catch (e) {
       console.error("Firebase save error:", e);
+      showToast("No se pudo guardar en la nube. Revisa tu conexión.", "var(--red)");
     }
   }
   localStorage.setItem(SK, dbStr);
