@@ -189,8 +189,8 @@ function renderSections() {
       found = true;
       shows = sortedShows(cat, shows);
       const cfg = secCfg(cat);
-      if (cat === 'active') html += upcomingEpisodesHtml(shows);
       html += `<div class="section">
+    ${cat === 'active' ? upcomingEpisodesHtml(shows) : ''}
     <div class="section-header">
       ${netflixCategory ? `<button class="btn btn-ghost" style="padding:0.3rem 0.6rem; margin-right: 0.5rem;" onclick="openCategoryView(null)">← Volver</button>` : ''}
       <div class="section-dot ${cat === 'active' ? 'active-pulse' : ''}" style="background:${cfg.dot}"></div>
@@ -218,8 +218,8 @@ function renderSections() {
     const cardsHtml = shows.map(s => createCard(s)).join('');
     isGridView = wasGrid;
 
-    if (cat === 'active') html += upcomingEpisodesHtml(shows);
     html += `<div class="section" style="margin-bottom: 0.2rem;">
+  ${cat === 'active' ? upcomingEpisodesHtml(shows) : ''}
   <div class="section-header" style="cursor: pointer;" onclick="openCategoryView('${cat}')">
     <div class="section-dot ${cat === 'active' ? 'active-pulse' : ''}" style="background:${cfg.dot}"></div>
     <div class="section-title" style="color:${cfg.dot}; display: flex; align-items: center; gap: 0.3rem;">
