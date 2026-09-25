@@ -189,6 +189,7 @@ function renderSections() {
       found = true;
       shows = sortedShows(cat, shows);
       const cfg = secCfg(cat);
+      if (cat === 'active') html += upcomingEpisodesHtml(shows);
       html += `<div class="section">
     <div class="section-header">
       ${netflixCategory ? `<button class="btn btn-ghost" style="padding:0.3rem 0.6rem; margin-right: 0.5rem;" onclick="openCategoryView(null)">← Volver</button>` : ''}
@@ -197,7 +198,6 @@ function renderSections() {
       <span class="section-count">${shows.length}</span>
       <div class="section-line"></div>
     </div>
-    ${cat === 'active' ? upcomingEpisodesHtml(shows) : ''}
     <div class="grid">${shows.map(s => createCard(s)).join('')}</div>
   </div>`;
     }
@@ -218,6 +218,7 @@ function renderSections() {
     const cardsHtml = shows.map(s => createCard(s)).join('');
     isGridView = wasGrid;
 
+    if (cat === 'active') html += upcomingEpisodesHtml(shows);
     html += `<div class="section" style="margin-bottom: 0.2rem;">
   <div class="section-header" style="cursor: pointer;" onclick="openCategoryView('${cat}')">
     <div class="section-dot ${cat === 'active' ? 'active-pulse' : ''}" style="background:${cfg.dot}"></div>
@@ -227,7 +228,6 @@ function renderSections() {
     <span class="section-count">${shows.length}</span>
     <div class="section-line"></div>
   </div>
-  ${cat === 'active' ? upcomingEpisodesHtml(shows) : ''}
   <div class="rec-container" style="margin-top: 0.5rem;">
     <button class="rec-nav nav-left" onclick="scrollNetflixRow(this, -1)" type="button" style="display:none;">‹</button>
     <div class="netflix-scroll">
