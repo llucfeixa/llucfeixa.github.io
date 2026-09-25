@@ -32,10 +32,11 @@ async function init() {
   try {
     const saved = await loadDB();
     DB = saved || { active: [], waiting: [], pending: [], done: [] };
-    const moved = (!isPublicView) ? checkAutoMove() : 0;
-    if (moved) {
+    const moved = (!isPublicView) ? checkAutoMove() : { count: 0, shows: [] };
+    if (moved.count) {
       await saveDB();
-      showToast(`📺 ${moved} serie${moved > 1 ? 's' : ''} pasada${moved > 1 ? 's' : ''} a "En curso"`);
+      showToast(`📺 ${moved.count} serie${moved.count > 1 ? 's' : ''} pasada${moved.count > 1 ? 's' : ''} a "En curso"`);
+      notifyEpisodesAvailable(moved.shows);
     }
     updateStats(); renderSections();
 
@@ -96,9 +97,63 @@ async function syncTMDBData() {
 
 
 setInterval(async () => {
-  const n = checkAutoMove();
-  if (n) { await saveDB(); updateStats(); renderSections(); showToast(`📺 ${n} serie${n > 1 ? 's' : ''} movida a "En curso"`); }
+  const moved = checkAutoMove();
+  if (moved.count) {
+    await saveDB(); updateStats(); renderSections();
+    showToast(`📺 ${moved.count} serie${moved.count > 1 ? 's' : ''} movida${moved.count > 1 ? 's' : ''} a "En curso"`);
+    notifyEpisodesAvailable(moved.shows);
+  }
 }, 3600000);
+
+
+// ── NOTIFICATIONS ─────────────────────────────────
+// Opt-in browser notifications for when a "waiting" show gets new episodes.
+// Preference is stored locally (independent of account) and only ever
+// acted on if the user has both enabled it here AND granted OS permission.
+const NOTIF_PREF_KEY = 'cineteca_notif_enabled';
+
+function notificationsEnabled() {
+  return localStorage.getItem(NOTIF_PREF_KEY) === 'true'
+    && typeof Notification !== 'undefined'
+    && Notification.permission === 'granted';
+}
+
+async function toggleNotifications(checked) {
+  if (!checked) {
+    localStorage.setItem(NOTIF_PREF_KEY, 'false');
+    return;
+  }
+  if (typeof Notification === 'undefined') {
+    showToast('Tu navegador no soporta notificaciones', 'var(--red)');
+    document.getElementById('settingsNotifToggle').checked = false;
+    return;
+  }
+  const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+  if (perm === 'granted') {
+    localStorage.setItem(NOTIF_PREF_KEY, 'true');
+    showToast('🔔 Notificaciones activadas');
+  } else {
+    localStorage.setItem(NOTIF_PREF_KEY, 'false');
+    document.getElementById('settingsNotifToggle').checked = false;
+    showToast('No se han concedido permisos de notificación', 'var(--red)');
+  }
+}
+
+async function notifyEpisodesAvailable(shows) {
+  if (!shows || !shows.length || !notificationsEnabled()) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const body = shows.length === 1
+      ? `${shows[0].title} ya tiene ${shows[0].nextEp || 'nuevo contenido'} disponible.`
+      : shows.map(s => s.title).join(', ');
+    await reg.showNotification(shows.length === 1 ? '📺 Nuevo episodio disponible' : '📺 Nuevos episodios disponibles', {
+      body,
+      icon: 'icons/icon-192.png',
+      badge: 'icons/icon-192.png',
+      tag: 'cineteca-new-episode'
+    });
+  } catch (e) { console.error('Notification error:', e); }
+}
 
 
 window.addEventListener('resize', () => {

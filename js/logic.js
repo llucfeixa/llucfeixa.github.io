@@ -254,7 +254,8 @@ function checkAutoMove() {
     const d = parseDate(s.nextEp);
     if (d && d <= now) ids.push(s.id);
   });
-  if (!ids.length) return 0;
+  if (!ids.length) return { count: 0, shows: [] };
+  const movedShows = [];
   ids.forEach(id => {
     const s = DB.waiting.find(x => String(x.id) === String(id));
     if (s) {
@@ -264,7 +265,8 @@ function checkAutoMove() {
       s.nextEp = `T${sNum}E1`;
       DB.waiting = DB.waiting.filter(x => String(x.id) !== String(id));
       DB.active.push(s);
+      movedShows.push(s);
     }
   });
-  return ids.length;
+  return { count: movedShows.length, shows: movedShows };
 }

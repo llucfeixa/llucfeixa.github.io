@@ -27,6 +27,7 @@ function createCard(show) {
     <div class="list-actions">
       ${hasNext && !isPublicView ? `<button class="list-next-btn" onclick="event.stopPropagation();quickAdvance('${id}')">▶ Ya lo vi</button>` : ''}
       ${isPending && !isPublicView ? `<button class="list-next-btn" onclick="event.stopPropagation();startWatching('${id}')">▶ Empezar</button>` : ''}
+      ${show.status === 'waiting' && !isPublicView && show.tmdb && show.tmdb.id ? `<button class="list-action-btn" onclick="event.stopPropagation();refreshShowStatus('${id}')" title="Comprobar novedades" aria-label="Comprobar novedades">🔄</button>` : ''}
       ${!isPublicView ? `
         <button class="list-action-btn" onclick="event.stopPropagation();openEdit('${id}')">✏️</button>
         <button class="list-action-btn del" onclick="event.stopPropagation();confirmDelete('${id}')">🗑</button>
@@ -65,6 +66,7 @@ function createCard(show) {
       <span class="popout-tag">${cfg.label.replace(/^[^\s]+ /, '')}</span>
       ${show.nextEp ? `<span class="popout-tag" style="border-color:var(--gold); color:var(--gold)">${show.nextEp}</span>` : ''}
     </div>
+    ${show.status === 'waiting' && !isPublicView && show.tmdb && show.tmdb.id ? `<button class="list-next-btn" style="margin-top:0.6rem;width:100%;" onclick="event.stopPropagation();refreshShowStatus('${id}')">🔄 Comprobar novedades</button>` : ''}
   </div>
 </div>
 
@@ -141,7 +143,39 @@ function openCategoryView(cat) {
 }
 
 
+// Top-of-dashboard summary: the 3 soonest known episode dates across
+// "En curso" and "Esperando", so the user doesn't have to scan every section.
+function renderUpcomingWidget() {
+  const box = document.getElementById('upcomingWidget');
+  if (!box) return;
+
+  const upcoming = [...DB.active, ...DB.waiting]
+    .map(s => ({ show: s, date: parseDate(s.nextEp) }))
+    .filter(x => x.date)
+    .sort((a, b) => a.date - b.date)
+    .slice(0, 3);
+
+  if (!upcoming.length) { box.innerHTML = ''; return; }
+
+  box.innerHTML = `
+    <div class="upcoming-title">📅 Próximos episodios</div>
+    <div class="upcoming-list">
+      ${upcoming.map(({ show }) => {
+        const poster = show.tmdb && show.tmdb.poster_path ? `${IMG}${show.tmdb.poster_path}` : '';
+        const rel = relativeDaysLabel(show.nextEp);
+        return `<div class="upcoming-item" onclick="openModal('${show.id}')">
+      <div class="upcoming-poster">${poster ? `<img src="${poster}" alt="" loading="lazy">` : '📺'}</div>
+      <div class="upcoming-info">
+        <div class="upcoming-show-title">${show.title}</div>
+        <div class="upcoming-ep">${show.nextEp || ''}${rel ? ` · <span class="next-ep-countdown">${rel}</span>` : ''}</div>
+      </div>
+    </div>`;
+      }).join('')}
+    </div>`;
+}
+
 function renderSections() {
+  renderUpcomingWidget();
   const con = document.getElementById('sectionsContainer');
   if (!con) return;
   const q = (document.getElementById('searchInput') || {}).value || '';
@@ -302,13 +336,56 @@ function confirmDelete(id) {
 async function quickAdvance(id) {
   if (isPublicView) return; // Security: cannot advance in public view
   const show = findShow(id); if (!show) return;
+
+  // Snapshot for Undo, in case the user misclicks or wants to revert
+  const prevSeasons = [...(show.seasons || [])];
+  const prevNextEp = show.nextEp;
+  const prevStatus = show.status;
+
   const detail = await getShowDetail(show);
   const res = await computeAdvance(show, detail);
   if (res.error) { showToast(res.error, 'var(--red)'); return; }
   const { newSeasons, newNextEp, newStatus, toastMsg } = res;
   show.seasons = newSeasons; show.nextEp = newNextEp;
-  if (newStatus !== show.status) { const old = findCat(id); DB[old] = DB[old].filter(s => s.id !== id); show.status = newStatus; DB[newStatus].push(show); }
-  await saveDB(); updateStats(); renderSections(); showToast(toastMsg);
+  if (newStatus !== show.status) { const old = findCat(id); DB[old] = DB[old].filter(s => String(s.id) !== String(id)); show.status = newStatus; DB[newStatus].push(show); }
+  await saveDB(); updateStats(); renderSections();
+  showToast(toastMsg, null, { label: 'Deshacer', onClick: () => undoQuickAdvance(id, prevSeasons, prevNextEp, prevStatus) });
+}
+
+async function undoQuickAdvance(id, prevSeasons, prevNextEp, prevStatus) {
+  const show = findShow(id); if (!show) return;
+  if (prevStatus !== show.status) {
+    const cur = findCat(id);
+    DB[cur] = DB[cur].filter(s => String(s.id) !== String(id));
+    show.status = prevStatus;
+    DB[prevStatus].push(show);
+  }
+  show.seasons = prevSeasons;
+  show.nextEp = prevNextEp;
+  await saveDB(); updateStats(); renderSections();
+  showToast('↩️ Cambio deshecho');
+}
+
+async function refreshShowStatus(id) {
+  if (isPublicView) return;
+  const show = findShow(id); if (!show) return;
+  if (!show.tmdb || !show.tmdb.id) { showToast('Esta serie no está vinculada a TMDB', 'var(--red)'); return; }
+
+  showToast('🔄 Comprobando novedades...');
+  try {
+    const detail = await tmdbDetailFresh(show.tmdb.id);
+    if (!detail) { showToast('No se pudo conectar con TMDB ahora mismo', 'var(--red)'); return; }
+    const changed = await autoCorrectStatus(show, detail);
+    if (changed) {
+      await saveDB(); updateStats(); renderSections();
+      showToast(show.status === 'active' ? `📺 ¡${show.title} ya tiene episodios disponibles!` : `⏳ ${show.title} actualizada`);
+    } else {
+      showToast('Sin novedades por ahora');
+    }
+  } catch (e) {
+    console.error('refreshShowStatus error:', e);
+    showToast('Error al comprobar novedades', 'var(--red)');
+  }
 }
 
 async function startWatching(id) {

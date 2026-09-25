@@ -87,6 +87,15 @@ async function tmdbDetail(id) {
   } catch (e) { return null }
 }
 
+// Bypasses tmdbDetailCache — used for manual "check for updates now" actions,
+// where the user explicitly wants the latest TMDB data rather than whatever
+// was cached earlier in the session.
+async function tmdbDetailFresh(id) {
+  if (!id) return null;
+  delete tmdbDetailCache[id];
+  return await tmdbDetail(id);
+}
+
 const tmdbSeasonCache = {};
 async function tmdbSeason(showId, seasonNum) {
   const key = `${showId}_${seasonNum}`;

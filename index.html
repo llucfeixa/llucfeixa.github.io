@@ -94,6 +94,7 @@
   <div class="stats-bar" id="statsBar"></div>
   <div id="mySeriesView">
 
+    <div class="upcoming-widget" id="upcomingWidget"></div>
     <div class="sections" id="sectionsContainer"></div>
   </div>
 
@@ -386,6 +387,14 @@
         <label class="form-label">Nombre de usuario</label>
         <input type="text" id="settingsUserName" class="form-input" placeholder="Tu nombre público">
         <p style="font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem;">Este nombre aparecerá en tu perfil compartido y en la lista de amigos de otros usuarios.</p>
+      </div>
+      <div class="form-group" style="margin-top: 1.5rem;">
+        <label class="toggle-wrap">
+          <input type="checkbox" id="settingsNotifToggle" style="display:none" onchange="toggleNotifications(this.checked)">
+          <div class="toggle-switch"></div>
+          <span>🔔 Avisarme de nuevos episodios</span>
+        </label>
+        <p style="font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem;">Recibirás una notificación cuando una serie en "Esperando" tenga nuevos episodios disponibles.</p>
       </div>
       <div style="margin-top: 2rem;">
         <button class="btn btn-primary" style="width: 100%;" onclick="saveSettings()">Guardar cambios</button>

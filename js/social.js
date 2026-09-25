@@ -119,6 +119,8 @@ function removeFriend(uid) {
 function openSettings() {
   if (!currentUser) return;
   document.getElementById('settingsUserName').value = currentUser.customDisplayName || currentUser.displayName || "";
+  const notifToggle = document.getElementById('settingsNotifToggle');
+  if (notifToggle) notifToggle.checked = notificationsEnabled();
   const overlay = document.getElementById('settingsOverlay');
   overlay.style.display = 'flex';
   setTimeout(() => overlay.classList.add('open'), 10);
