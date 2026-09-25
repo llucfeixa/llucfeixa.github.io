@@ -53,7 +53,7 @@ async function computeAdvance(show, detail) {
       let ep1Aired = true, ep1Date = null;
       if ((ne && ne.season_number === nextSeaNum && ne.episode_number === 1) || (nextSeaTmdb.air_date && nextSeaTmdb.air_date > today)) {
         ep1Aired = false;
-        ep1Date = ne && ne.air_date ? fmtDate(ne.air_date) : (nextSeaTmdb.air_date ? fmtDate(nextSeaTmdb.air_date) : null);
+        ep1Date = (ne && ne.season_number === nextSeaNum && ne.air_date) ? fmtDate(ne.air_date) : (nextSeaTmdb.air_date ? fmtDate(nextSeaTmdb.air_date) : null);
       }
       if (!ep1Aired) {
         const newNextEp = ep1Date ? `T${nextSeaNum} (${ep1Date})` : `T${nextSeaNum}`;
@@ -71,7 +71,7 @@ async function computeAdvance(show, detail) {
         return { newSeasons: allSeasons, newNextEp: null, newStatus: 'done', toastMsg: `✅ Serie completada` };
       }
       let newNextEp = `T${nextSeaNum}`;
-      if (ne && ne.air_date) newNextEp = `T${ne.season_number} (${fmtDate(ne.air_date)})`;
+      if (ne && ne.season_number === nextSeaNum && ne.air_date) newNextEp = `T${ne.season_number} (${fmtDate(ne.air_date)})`;
       return { newSeasons, newNextEp, newStatus: 'waiting', toastMsg: `⏳ T${newSeason} completada → esperando anuncios` };
     }
   }
@@ -133,7 +133,7 @@ async function autoCorrectStatus(show, detail) {
     if (tmdbSt !== 'Ended' && tmdbSt !== 'Canceled') {
       const maxTmdbSea = tmdbSeasons.length ? Math.max(...tmdbSeasons.map(s => s.season_number)) : 0;
       if (curWatchedSeason >= maxTmdbSea || tmdbSeasons.some(s => s.season_number > curWatchedSeason) || (ne && ne.season_number > curWatchedSeason)) {
-        const nxt = ne && ne.air_date ? `T${ne.season_number} (${fmtDate(ne.air_date)})` : `T${curWatchedSeason + 1}`;
+        const nxt = (ne && ne.season_number > curWatchedSeason && ne.air_date) ? `T${ne.season_number} (${fmtDate(ne.air_date)})` : `T${curWatchedSeason + 1}`;
         moveTo(show, 'waiting', nxt);
         return true;
       }
