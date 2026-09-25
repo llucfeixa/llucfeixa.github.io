@@ -1825,54 +1825,21 @@ h3 {
   z-index: 9999;
   transition: transform 0.28s;
   white-space: nowrap;
-  border-left: 3px solid var(--gold);
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  max-width: calc(100vw - 2rem);
+  border-left: 3px solid var(--gold)
 }
 
 .toast.show {
   transform: translateX(-50%) translateY(0)
 }
 
-.toast-action-btn {
-  background: none;
-  border: none;
-  color: var(--gold2);
-  font-weight: 700;
-  font-size: 0.83rem;
-  font-family: 'DM Sans', sans-serif;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  padding: 0;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.toast-action-btn:hover {
-  color: var(--gold);
-}
-
-/* ── UPCOMING EPISODES WIDGET ─────────────────────── */
-.upcoming-widget:empty {
-  display: none;
-}
-
-.upcoming-title {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.05rem;
-  color: var(--gold);
-  margin-bottom: 0.7rem;
-}
-
-.upcoming-list {
+/* ── UPCOMING EPISODES (inline, inside "En emisión ahora") ───── */
+.upcoming-inline {
   display: flex;
-  gap: 0.8rem;
-  overflow-x: auto;
-  padding-bottom: 0.3rem;
-  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.7rem;
+  margin: 0.6rem 0 1.1rem;
+  padding: 6px 4px; /* breathing room so the hover lift/shadow below isn't clipped */
 }
 
 .upcoming-item {
@@ -1884,14 +1851,13 @@ h3 {
   border-radius: 9px;
   padding: 0.5rem 0.9rem 0.5rem 0.5rem;
   cursor: pointer;
-  flex-shrink: 0;
   min-width: 220px;
   transition: transform 0.18s, box-shadow 0.18s;
 }
 
 .upcoming-item:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(201, 168, 76, 0.25);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(76, 175, 125, 0.3);
 }
 
 .upcoming-poster {
@@ -1918,15 +1884,15 @@ h3 {
 }
 
 .upcoming-show-title {
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-size: 0.86rem;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .upcoming-ep {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;

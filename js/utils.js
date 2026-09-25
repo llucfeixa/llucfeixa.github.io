@@ -5,30 +5,13 @@ function genId() {
   return 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
-// action (optional): { label, onClick } — renders a small inline button
-// (e.g. "Deshacer") that runs onClick and dismisses the toast when tapped.
-function showToast(m, color, action) {
+function showToast(m, color) {
   const t = document.getElementById('toast');
   if (!t) return;
-
-  t.innerHTML = '';
-  const span = document.createElement('span');
-  span.textContent = m;
-  t.appendChild(span);
-
-  if (action && action.label && typeof action.onClick === 'function') {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'toast-action-btn';
-    btn.textContent = action.label;
-    btn.onclick = () => { action.onClick(); t.classList.remove('show'); };
-    t.appendChild(btn);
-  }
-
+  t.textContent = m;
   t.style.borderLeftColor = color || 'var(--gold)';
   t.classList.add('show');
-  clearTimeout(t._hideTimer);
-  t._hideTimer = setTimeout(() => t.classList.remove('show'), action ? 5000 : 2800);
+  setTimeout(() => t.classList.remove('show'), 2800);
 }
 
 function parseDate(str) {
