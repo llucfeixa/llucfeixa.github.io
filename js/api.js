@@ -148,7 +148,7 @@ function buildPlatformBadge(detail) {
     'Disney Plus': `https://www.disneyplus.com/es-es/`,
     'Amazon Prime Video': `https://www.primevideo.com/`,
     'Movistar Plus+': `https://ver.movistarplus.es/`,
-    'Apple TV Plus': `https://tv.apple.com/`,
+    'Apple TV': `https://tv.apple.com/`,
     'SkyShowtime': `https://www.skyshowtime.com/`
   };
 
