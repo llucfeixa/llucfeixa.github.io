@@ -74,6 +74,16 @@ async function syncTMDBData() {
             }
           });
 
+          // Trimmed per-season episode counts (season_number + episode_count
+          // only, not TMDB's full season objects) — used by calculateProgress
+          // so a finished season counts its REAL episode total instead of a
+          // hardcoded guess.
+          const trimmedSeasons = trimSeasonsForStorage(d.seasons);
+          if (JSON.stringify(show.tmdb.seasons) !== JSON.stringify(trimmedSeasons)) {
+            show.tmdb.seasons = trimmedSeasons;
+            localChange = true;
+          }
+
           // 3. Auto-correct status/progression (now including pending for nextEp dates)
           const c = await autoCorrectStatus(show, d);
           if (c) localChange = true;

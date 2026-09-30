@@ -259,7 +259,8 @@ async function saveShow() {
       first_air_date: editTmdbDetail.first_air_date,
       number_of_seasons: editTmdbDetail.number_of_seasons,
       number_of_episodes: editTmdbDetail.number_of_episodes,
-      episode_run_time: editTmdbDetail.episode_run_time
+      episode_run_time: editTmdbDetail.episode_run_time,
+      seasons: trimSeasonsForStorage(editTmdbDetail.seasons)
     } : null;
     const newShow = { id: genId(), title, rating, status, seasons: [...editSeasons], nextEp, tmdb: basic };
     DB[status].push(newShow);

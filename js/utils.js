@@ -37,6 +37,17 @@ function fmtDate(str) {
   const [y, mo, d] = str.split('-'); return `${d}/${mo}/${y}`;
 }
 
+// Trims TMDB's full season objects (which include posters, overviews, cast
+// info, etc.) down to just season_number + episode_count — the only fields
+// calculateProgress() needs to count a finished season's real episode total,
+// without bloating what gets stored per show.
+function trimSeasonsForStorage(tmdbSeasons) {
+  if (!Array.isArray(tmdbSeasons)) return [];
+  return tmdbSeasons
+    .filter(s => s.season_number > 0)
+    .map(s => ({ season_number: s.season_number, episode_count: s.episode_count }));
+}
+
 function parseEp(str) {
   if (!str) return null;
   const m = str.match(/T(\d+)(?:E(\d+))?/i);
