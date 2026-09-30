@@ -25,12 +25,15 @@ async function renderCalendar() {
 
       if (detail.next_episode_to_air) {
         const ne = detail.next_episode_to_air;
-        releases.push({
-          show,
-          ep: ne,
-          date: new Date(ne.air_date),
-          airDateStr: ne.air_date
-        });
+        const today = new Date().toLocaleDateString('en-CA');
+        if (ne.air_date && ne.air_date >= today) {
+          releases.push({
+            show,
+            ep: ne,
+            date: new Date(ne.air_date),
+            airDateStr: ne.air_date
+          });
+        }
       }
     }
   }
