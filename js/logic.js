@@ -150,12 +150,22 @@ async function autoCorrectStatus(show, detail) {
       return true;
     }
 
-    // Check if the next season or episode has started airing
+    // Check if the next season or episode has started airing.
+    // Prefer the precise next_episode_to_air data for the target season when
+    // we have it — it's per-episode and reliable. Only fall back to the
+    // looser season-level air_date (which can be off by a day due to
+    // timezone/listing quirks) when TMDB hasn't given us that specific data.
     const targetSeason = curWatchedSeason === 0 ? 1 : curWatchedSeason + 1;
     const targetSeaTmdb = tmdbSeasons.find(s => s.season_number === targetSeason);
-    const targetStarted = (targetSeaTmdb && targetSeaTmdb.air_date && targetSeaTmdb.air_date <= today) ||
-      (ne && (ne.season_number > targetSeason || (ne.season_number === targetSeason && (ne.episode_number > 1 || (ne.episode_number === 1 && ne.air_date && ne.air_date <= today))))) ||
-      (targetSeason === 1 && detail.first_air_date && detail.first_air_date <= today);
+    let targetStarted;
+    if (ne && ne.season_number === targetSeason) {
+      targetStarted = ne.episode_number > 1 || (ne.episode_number === 1 && ne.air_date && ne.air_date <= today);
+    } else if (ne && ne.season_number > targetSeason) {
+      targetStarted = true;
+    } else {
+      targetStarted = !!((targetSeaTmdb && targetSeaTmdb.air_date && targetSeaTmdb.air_date <= today) ||
+        (targetSeason === 1 && detail.first_air_date && detail.first_air_date <= today));
+    }
 
     if (targetStarted) {
       moveTo(show, 'active', `T${targetSeason}E1`);
@@ -215,7 +225,14 @@ async function autoCorrectStatus(show, detail) {
           return true;
         }
       } else {
-        const ep1Aired = (!ne || ne.season_number > userSeason + 1 || (ne.season_number === userSeason + 1 && (ne.episode_number > 1 || (ne.episode_number === 1 && ne.air_date && ne.air_date <= today)))) || (nextSeaTmdb.air_date && nextSeaTmdb.air_date <= today);
+        let ep1Aired;
+        if (ne && ne.season_number === userSeason + 1) {
+          ep1Aired = ne.episode_number > 1 || (ne.episode_number === 1 && ne.air_date && ne.air_date <= today);
+        } else if (ne && ne.season_number > userSeason + 1) {
+          ep1Aired = true;
+        } else {
+          ep1Aired = !!(nextSeaTmdb.air_date && nextSeaTmdb.air_date <= today);
+        }
         if (ep1Aired) {
           moveTo(show, 'active', `T${userSeason + 1}E1`);
           return true;

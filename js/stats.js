@@ -67,14 +67,14 @@ function updateStats() {
     if (document.getElementById('settingsBtn')) document.getElementById('settingsBtn').style.display = 'none';
   }
 
+  // Uses calculateProgress (per-season max, not a naive sum of every
+  // historical episode tag) so this matches the Stats tab's episode count.
   let totalEps = 0;
   getAllShows().forEach(s => {
-    if (s.seasons) {
-      s.seasons.forEach(tag => {
-        const p = parseEp(tag);
-        if (p) totalEps += p.e || 10;
-      });
-    }
+    const totalShowEps = s.tmdb ? s.tmdb.number_of_episodes : 0;
+    if (!totalShowEps) return;
+    const prog = calculateProgress(s);
+    totalEps += Math.round((prog / 100) * totalShowEps);
   });
   const hours = Math.round((totalEps * 45) / 60);
 
