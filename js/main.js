@@ -66,9 +66,9 @@ async function syncTMDBData() {
           if (show.rating !== r) { show.rating = r; localChange = true; }
 
           // 2. Update TMDB metadata fields
-          const fields = ['poster_path', 'backdrop_path', 'overview', 'first_air_date', 'number_of_seasons', 'number_of_episodes'];
+          const fields = ['poster_path', 'backdrop_path', 'overview', 'first_air_date', 'number_of_seasons', 'number_of_episodes', 'episode_run_time'];
           fields.forEach(f => {
-            if (show.tmdb[f] !== d[f]) {
+            if (JSON.stringify(show.tmdb[f]) !== JSON.stringify(d[f])) {
               show.tmdb[f] = d[f];
               localChange = true;
             }

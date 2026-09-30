@@ -109,15 +109,9 @@ async function autoCorrectStatus(show, detail) {
   const today = new Date().toLocaleDateString('en-CA');
   const tmdbSeasons = (detail.seasons || []).filter(s => s.season_number > 0 && s.episode_count > 0);
 
-  // 1. Pending shows: update date if T1/ep date announced
+  // 1. Pending shows ("Quiero ver algún día"): no date tracking — these
+  // always just read "Sin empezar" until the user chooses to start them.
   if (show.status === 'pending') {
-    if (ne && ne.air_date) {
-      const newNext = `T${ne.season_number}E${ne.episode_number} (${fmtDate(ne.air_date)})`;
-      if (show.nextEp !== newNext) {
-        show.nextEp = newNext;
-        return true;
-      }
-    }
     return false;
   }
 

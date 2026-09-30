@@ -1,6 +1,15 @@
 // ── STATS ─────────────────────────────────────────
 // The header stats bar and the dedicated Stats tab.
 
+// TMDB's episode_run_time is a list of the common runtimes for the show
+// (usually one value). Falls back to a general estimate for the rare show
+// TMDB has no runtime data for.
+function showRuntimeMinutes(show) {
+  const rt = show.tmdb && show.tmdb.episode_run_time;
+  if (Array.isArray(rt) && rt.length && rt[0] > 0) return rt[0];
+  return 42;
+}
+
 function updateStats() {
   const bar = document.getElementById('statsBar');
   if (!bar) return;
@@ -68,15 +77,17 @@ function updateStats() {
   }
 
   // Uses calculateProgress (per-season max, not a naive sum of every
-  // historical episode tag) so this matches the Stats tab's episode count.
-  let totalEps = 0;
+  // historical episode tag) and each show's real TMDB runtime, so this
+  // matches the Stats tab's numbers.
+  let totalMinutes = 0;
   getAllShows().forEach(s => {
     const totalShowEps = s.tmdb ? s.tmdb.number_of_episodes : 0;
     if (!totalShowEps) return;
     const prog = calculateProgress(s);
-    totalEps += Math.round((prog / 100) * totalShowEps);
+    const watchedEps = Math.round((prog / 100) * totalShowEps);
+    totalMinutes += watchedEps * showRuntimeMinutes(s);
   });
-  const hours = Math.round((totalEps * 45) / 60);
+  const hours = Math.round(totalMinutes / 60);
 
   bar.innerHTML = `
 <div class="stat"><div class="stat-n">${getAllShows().length}</div><div class="stat-l">Total</div></div>
@@ -91,6 +102,7 @@ function updateStats() {
 function renderStatsPage() {
   const all = getAllShows();
   let totalEps = 0;
+  let totalMinutes = 0;
   let totalRating = 0;
   let ratedCount = 0;
 
@@ -98,7 +110,9 @@ function renderStatsPage() {
     const prog = calculateProgress(s);
     // Rough estimate of episodes watched based on progress
     const totalShowEps = s.tmdb ? s.tmdb.number_of_episodes : 0;
-    totalEps += Math.round((prog / 100) * totalShowEps);
+    const watchedEps = Math.round((prog / 100) * totalShowEps);
+    totalEps += watchedEps;
+    totalMinutes += watchedEps * showRuntimeMinutes(s);
 
     if (s.rating) {
       totalRating += parseFloat(s.rating);
@@ -106,10 +120,9 @@ function renderStatsPage() {
     }
   });
 
-  const totalMinutes = totalEps * 40; // Est. 40 mins per episode
   const days = Math.floor(totalMinutes / (24 * 60));
   const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
-  const mins = totalMinutes % 60;
+  const mins = Math.round(totalMinutes % 60);
 
   document.getElementById('statsTotalTime').textContent = `${days}d ${hours}h ${mins}m`;
   document.getElementById('statsTotalEps').textContent = totalEps;

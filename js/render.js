@@ -20,7 +20,7 @@ function createCard(show) {
   <div class="list-thumb" onclick="openModal('${id}')">${poster ? `<img src="${poster}" alt="" loading="lazy">` : '📺'}</div>
   <div class="list-info" onclick="openModal('${id}')">
     <div class="list-title">${show.title}</div>
-    <div class="list-sub">${show.nextEp ? `Pendiente: <strong>${show.nextEp}</strong>${relativeDaysLabel(show.nextEp) ? ` <span class="next-ep-countdown">${relativeDaysLabel(show.nextEp)}</span>` : ''}` : (show.status === 'done' ? `Visto: <strong>Completa</strong>` : `Visto: ${last || '—'}`)}</div>
+    <div class="list-sub">${isPending ? 'Sin empezar' : (show.nextEp ? `Pendiente: <strong>${show.nextEp}</strong>${relativeDaysLabel(show.nextEp) ? ` <span class="next-ep-countdown">${relativeDaysLabel(show.nextEp)}</span>` : ''}` : (show.status === 'done' ? `Visto: <strong>Completa</strong>` : `Visto: ${last || '—'}`))}</div>
   </div>
   <div class="list-right">
     <span class="badge ${cfg.badge}">${cfg.label}</span>
@@ -45,8 +45,8 @@ function createCard(show) {
 </div>
 <div class="card-body" onclick="openModal('${id}')">
   <div class="card-title">${show.title}</div>
-  <div class="card-meta"><span class="card-ep">${show.status === 'done' ? (last ? `${last}` : 'Completa') : (show.nextEp || last || 'Sin empezar')}</span><div class="card-status-dot" style="background:${cfg.dot}"></div></div>
-  ${show.status !== 'done' && relativeDaysLabel(show.nextEp) ? `<span class="next-ep-countdown">${relativeDaysLabel(show.nextEp)}</span>` : ''}
+  <div class="card-meta"><span class="card-ep">${show.status === 'done' ? (last ? `${last}` : 'Completa') : (isPending ? 'Sin empezar' : (show.nextEp || last || 'Sin empezar'))}</span><div class="card-status-dot" style="background:${cfg.dot}"></div></div>
+  ${!isPending && show.status !== 'done' && relativeDaysLabel(show.nextEp) ? `<span class="next-ep-countdown">${relativeDaysLabel(show.nextEp)}</span>` : ''}
   ${show.seasons && show.seasons.length ? `<div class="card-progress-bar"><div class="card-progress-bar-fill" style="width:${progress}%;background:var(--gold)"></div></div>` : ''}
 </div>
 
@@ -63,7 +63,7 @@ function createCard(show) {
     </div>
     <div class="popout-tags">
       <span class="popout-tag">${cfg.label.replace(/^[^\s]+ /, '')}</span>
-      ${show.nextEp ? `<span class="popout-tag" style="border-color:var(--gold); color:var(--gold)">${show.nextEp}</span>` : ''}
+      ${!isPending && show.nextEp ? `<span class="popout-tag" style="border-color:var(--gold); color:var(--gold)">${show.nextEp}</span>` : ''}
     </div>
   </div>
 </div>
